@@ -150,7 +150,7 @@ class Form(QtGui.QMainWindow):
 		rc_map = ((x0, N*h_t+y0), (M*w_t+x0, y0)) 
 
 		if is_intersection_empty(rc_map, rc_view):
-			return []
+			return ((N-1, N-1), (M-1, M-1))
 		else:
 			if x0 < 0:
 				n = ( abs(x0)/w_t, min(int(math.ceil((abs(x0)+w)/float(w_t))), N-1)+1 )
@@ -173,8 +173,6 @@ class Form(QtGui.QMainWindow):
 
 	def tile_list_from_range(self, tile_range):
 		tiles = []
-		print '\n#tile_list_from_range(): len(tile_range)=%d' % (
-			len(tile_range), )
 		m,n = tile_range
 		for y in range(m[0], m[1]):
 			for x in range(n[0], n[1]):
@@ -201,10 +199,32 @@ class Form(QtGui.QMainWindow):
 		self.image_cache = {}
 
 	def zoom_event(self, step):
-		self.zoom = max(self.zoom+step, 0) % 16
+		new_zoom = max(min(self.zoom+step, 16), 0)
+		if new_zoom == self.zoom:
+			return
+		center = self.view_center_on_map()
+		if step > 0:
+			center = (self.double_distance(center[0]), 
+				self.double_distance(center[1]))
+		else:
+			center = (center[0]/2, center[1]/2)
+		w,h = self.window_size()
+		self.view_offset = (-center[0]+w/2, -center[1]+h/2)
+		self.zoom = new_zoom
 		print '\n#zoom_event(): zoom event, zoom:%d' % (self.zoom, )
+		
 		self.clear_image_cache()
 		self.map_changed()
+
+	def double_distance(self, x):
+		if x < 0:
+			return -(2*x)
+		else:
+			return 2*x
+
+	def view_center_on_map(self):
+		w,h = self.window_size()
+		return (abs(self.view_offset[0]) + w/2, abs(self.view_offset[1]) + h/2)
 
 	def pan_event(self, diff):
 		self.view_offset = (self.view_offset[0] + diff[0], 
