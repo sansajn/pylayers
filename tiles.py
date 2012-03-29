@@ -262,7 +262,10 @@ def is_intersection_empty(r1, r2):
 		(b2[1] < a1[1]) )
 
 def temp_directory():
-	return os.environ['TEMP']
+	if os.name == 'nt':
+		return os.environ['TEMP']
+	else:
+		return '/tmp'
 
 
 
