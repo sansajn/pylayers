@@ -214,7 +214,9 @@ class Form(QtGui.QMainWindow):
 		print '\n#zoom_event(): zoom event, zoom:%d' % (self.zoom, )
 		
 		self.clear_image_cache()
+		self.set_window_title()
 		self.map_changed()
+
 
 	def double_distance(self, x):
 		if x < 0:
@@ -225,6 +227,10 @@ class Form(QtGui.QMainWindow):
 	def view_center_on_map(self):
 		w,h = self.window_size()
 		return (abs(self.view_offset[0]) + w/2, abs(self.view_offset[1]) + h/2)
+
+	def set_window_title(self):
+		self.setWindowTitle('PySlippyMap client (zoom:%d)' % (
+			self.zoom, ))
 
 	def pan_event(self, diff):
 		self.view_offset = (self.view_offset[0] + diff[0], 
