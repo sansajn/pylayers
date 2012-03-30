@@ -31,7 +31,8 @@ class Form(QtGui.QMainWindow):
 		self.connect(self.network, QtCore.SIGNAL(
 			'finished(QNetworkReply *)'),	self.tile_reply_event)
 		self.disk_cache = QtNetwork.QNetworkDiskCache()
-		self.disk_cache.setCacheDirectory(os.path.join(temp_directory(), 'tiles'))
+		self.disk_cache.setCacheDirectory(os.path.join(temp_directory(), 
+			'tiles'))
 		self.network.setCache(self.disk_cache)
 	
 	def paintEvent(self, e):
@@ -44,14 +45,17 @@ class Form(QtGui.QMainWindow):
 		else:
 			self.draw_map(qp)
 
+		path = path_layer()
+		path.paint(self.view_offset, self.zoom, qp)
+
 		qp.end()
 		dt = time.clock() - t
 		print 'paint event: %f' % (dt, )
 
+
 	def draw_map(self, qp):
-		print '#draw_map()'
+		print '\n#draw_map()'
 		y,x = self.visible_tiles()
-		print y,x
 		for i in range(y[0], y[1]):
 			for j in range(x[0], x[1]):
 				tile = self.load_tile_from_image_cache(j, i)
@@ -61,8 +65,7 @@ class Form(QtGui.QMainWindow):
 						self.insert_tile_to_image_cache(tile, j, i)
 				if tile:
 					self.draw_tile(tile, j, i, qp)
-		print 'x0:%d, y0:%d' % self.view_offset
-		print 'visible tiles:%s' % ((y,x), )
+		print '  x0:%d, y0:%d' % self.view_offset
 
 	def draw_tile(self, tile, x, y, qp):
 		x0,y0 = self.view_offset
@@ -77,8 +80,6 @@ class Form(QtGui.QMainWindow):
 		if cache_item:
 			tile = QtGui.QImage()
 			tile.load(cache_item, 'PNG')
-			print 'tile z:%d, x:%d, y:%d loaded from disk cache' % (
-				self.zoom, x, y)
 			return tile
 		else:
 			return None
@@ -92,7 +93,6 @@ class Form(QtGui.QMainWindow):
 	def map_changed(self):
 		print '#map_changed()'
 		tiles = self.tiles_not_in_cache(self.visible_tiles())
-		print '  tiles not in cache: %s' % (tiles, )
 		for t in tiles:
 			self.tile_request(t[1], t[0], self.zoom)
 		self.standard_update()
@@ -111,8 +111,6 @@ class Form(QtGui.QMainWindow):
 		request.setAttribute(QtNetwork.QNetworkRequest.User, (x, y, z))
 		self.requested_tiles.add((x, y, z))
 		self.network.get(request)
-		print '\n#tile_request()'
-		print 'network request for tile z:%d, x:%d, y:%d' % (z, x, y)
 
 	def tile_reply_event(self, reply):
 		if reply.error():
@@ -153,11 +151,13 @@ class Form(QtGui.QMainWindow):
 			return ((N-1, N-1), (M-1, M-1))
 		else:
 			if x0 < 0:
-				n = ( abs(x0)/w_t, min(int(math.ceil((abs(x0)+w)/float(w_t))), N-1)+1 )
+				n = ( abs(x0)/w_t, min(int(math.ceil((abs(x0)+w)/float(w_t))), 
+					N-1)+1 )
 			else:
 				n = ( 0, min(int(math.ceil((w-x0)/float(w_t))), N-1)+1 )
 			if y0 < 0:
-				m = ( abs(y0)/h_t, min(int(math.ceil((abs(y0)+h)/float(h_t))), M-1)+1 )
+				m = ( abs(y0)/h_t, min(int(math.ceil((abs(y0)+h)/float(h_t))), 
+					M-1)+1 )
 			else:
 				m = ( 0, min(int(math.ceil((h-y0)/float(h_t))), M-1)+1 )
 		return (m, n)
@@ -268,6 +268,56 @@ def temp_directory():
 		return '/tmp'
 
 
+
+vertices = (
+	(1442908, 160241540), (1442907, 160240868),
+	(1442907, 160240868), (1442908, 160240196),
+	(1442908, 160240196), (1442910, 160239108),
+	(1442910, 160239108), (1442912, 160238372),
+	(1442912, 160238372), (1442914, 160237796),
+	(1442914, 160237796), (1442921, 160235300),
+	(1442921, 160235300), (1442924, 160234116),
+	(1442924, 160234116), (1442927, 160232900),
+	(1442927, 160232900), (1442930, 160231684),
+	(1442930, 160231684), (1442938, 160230436),
+	(1442938, 160230436), (1442940, 160229028),
+	(1442940, 160229028), (1442944, 160227748),
+	(1442944, 160227748), (1442948, 160226404),
+	(1442948, 160226404), (1442954, 160223428),
+	(1442954, 160223428), (1442962, 160221828),
+	(1442962, 160221828), (1442979, 160220900),
+	(1442979, 160220900), (1443019, 160218276),
+	(1443019, 160218276), (1443022, 160217988),
+	(1443022, 160217988), (1443023, 160217669)
+)
+	
+
+class path_layer:
+	def paint(self, view_offset, zoom, qp):
+		for k,v in enumerate(vertices):
+			v = self.a2gps(v)
+			latlon = (v[1], v[0])
+			self.draw_vetex(view_offset, latlon, zoom, qp)
+			if k == 0:
+				print '#path_layer.paint(): %s' % (
+					self.latlon2xy(latlon, zoom),)
+
+	def latlon2xy(self, gpos, zoom):
+		lat,lon = gpos
+		n = 2**zoom*256
+		lat_rad = math.radians(lat)
+		x = int((lon+180.0)/360.0 * n)
+		y = int((1.0 - math.log(math.tan(lat_rad)+(1/math.cos(lat_rad)))
+			/ math.pi) / 2.0*n)
+		return (x, y)
+
+	def a2gps(self, apos):
+		return (apos[0]/1e5, apos[1]/1e5/32.0)
+
+	def draw_vetex(self, view_offset, latlon, zoom, qp):
+		x0,y0 = view_offset
+		x,y = self.latlon2xy(latlon, zoom)
+		qp.drawEllipse(x+x0, y+y0, 12, 12)
 
 if __name__ == '__main__':
 	main(sys.argv)
