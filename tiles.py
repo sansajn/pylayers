@@ -1,6 +1,10 @@
 # -*- coding: utf-8 -*-
+# \author Adam Hlavatovič
+# \version 20120330
 import sys, math, time, os
 from PyQt4 import QtCore, QtGui, QtNetwork
+import path_dump, vof_dump
+
 
 def main(args):
 	app = QtGui.QApplication(args)
@@ -26,6 +30,7 @@ class Form(QtGui.QMainWindow):
 		self.image_cache = {}
 		self.requested_tiles = set()
 		self.paint_reason = Form.paint_reason()
+		self.layers = []
 
 		self.network = QtNetwork.QNetworkAccessManager()
 		self.connect(self.network, QtCore.SIGNAL(
@@ -33,7 +38,9 @@ class Form(QtGui.QMainWindow):
 		self.disk_cache = QtNetwork.QNetworkDiskCache()
 		self.disk_cache.setCacheDirectory(os.path.join(temp_directory(), 
 			'tiles'))
+		self.disk_cache.setMaximumCacheSize(500*2**20)
 		self.network.setCache(self.disk_cache)
+
 	
 	def paintEvent(self, e):
 		t = time.clock()
@@ -45,8 +52,8 @@ class Form(QtGui.QMainWindow):
 		else:
 			self.draw_map(qp)
 
-		path = path_layer()
-		path.paint(self.view_offset, self.zoom, qp)
+		for layer in self.layers:
+			layer.paint(self.view_offset, self.zoom, qp)
 
 		qp.end()
 		dt = time.clock() - t
@@ -54,7 +61,6 @@ class Form(QtGui.QMainWindow):
 
 
 	def draw_map(self, qp):
-		print '\n#draw_map()'
 		y,x = self.visible_tiles()
 		for i in range(y[0], y[1]):
 			for j in range(x[0], x[1]):
@@ -65,7 +71,6 @@ class Form(QtGui.QMainWindow):
 						self.insert_tile_to_image_cache(tile, j, i)
 				if tile:
 					self.draw_tile(tile, j, i, qp)
-		print '  x0:%d, y0:%d' % self.view_offset
 
 	def draw_tile(self, tile, x, y, qp):
 		x0,y0 = self.view_offset
@@ -217,6 +222,19 @@ class Form(QtGui.QMainWindow):
 		self.set_window_title()
 		self.map_changed()
 
+	def keyPressEvent(self, e):
+		if e.key() == QtCore.Qt.Key_O:
+			fname = open_file_dialog(self)
+			if is_vof_file(str(fname)):
+				layer = vof_layer(self)
+				layer.read_dump(fname)
+				self.layers.append(layer)
+			else:
+				layer = path_layer()
+				layer.read_dump(fname)
+				self.layers.append(layer)
+		self.standard_update()
+
 
 	def double_distance(self, x):
 		if x < 0:
@@ -256,6 +274,10 @@ class Form(QtGui.QMainWindow):
 		self.map_changed()
 
 
+
+def is_vof_file(fname):
+	return os.path.splitext(fname)[1] == '.vof'
+
 def is_intersection_empty(r1, r2):
 	a1,b1 = r1;	a2,b2 = r2
 	return not ( (b2[0] > a1[0]) and (a2[0] < b1[0]) and (a2[1] > b1[1]) and 
@@ -267,40 +289,56 @@ def temp_directory():
 	else:
 		return '/tmp'
 
+def open_file_dialog(parent):
+	return QtGui.QFileDialog.getOpenFileName(parent, 'Open dump file ...')
+		
 
+class layer:
+	def __init__(self):
+		pass
 
-vertices = (
-	(1442908, 160241540), (1442907, 160240868),
-	(1442907, 160240868), (1442908, 160240196),
-	(1442908, 160240196), (1442910, 160239108),
-	(1442910, 160239108), (1442912, 160238372),
-	(1442912, 160238372), (1442914, 160237796),
-	(1442914, 160237796), (1442921, 160235300),
-	(1442921, 160235300), (1442924, 160234116),
-	(1442924, 160234116), (1442927, 160232900),
-	(1442927, 160232900), (1442930, 160231684),
-	(1442930, 160231684), (1442938, 160230436),
-	(1442938, 160230436), (1442940, 160229028),
-	(1442940, 160229028), (1442944, 160227748),
-	(1442944, 160227748), (1442948, 160226404),
-	(1442948, 160226404), (1442954, 160223428),
-	(1442954, 160223428), (1442962, 160221828),
-	(1442962, 160221828), (1442979, 160220900),
-	(1442979, 160220900), (1443019, 160218276),
-	(1443019, 160218276), (1443022, 160217988),
-	(1443022, 160217988), (1443023, 160217669)
-)
-	
+	def read_dump(self, fname):
+		pass
+
 
 class path_layer:
+	def __init__(self):
+		self.paths = []
+
+	def read_dump(self, fname):
+		reader = path_dump.reader()
+		self.paths = reader.read(fname)		
+
 	def paint(self, view_offset, zoom, qp):
-		for k,v in enumerate(vertices):
-			v = self.a2gps(v)
-			latlon = (v[1], v[0])
-			self.draw_vetex(view_offset, latlon, zoom, qp)
-			if k == 0:
-				print '#path_layer.paint(): %s' % (
-					self.latlon2xy(latlon, zoom),)
+		WHITE = (255, 255, 255)
+		if len(self.paths) == 0:
+			return
+		i = 1
+		path = self.paths[0]
+		u = path[0]
+		while i < len(path):
+			v = path[i]
+			self.draw_edge(view_offset, zoom, self.ap2gp(u), self.ap2gp(v), 
+				WHITE, qp)
+			self.draw_vertex(view_offset, zoom, self.ap2gp(u), WHITE, qp)
+			self.draw_vertex(view_offset, zoom, self.ap2gp(v), WHITE, qp)
+			u = v
+			i += 1
+
+	def draw_vertex(self, view_offset, zoom, latlon, color, qp):
+		x0,y0 = view_offset
+		x,y = self.latlon2xy(latlon, zoom)
+		x,y = (x-12/2, y-12/2)
+		old_brush = qp.brush()
+		qp.setBrush(QtGui.QBrush(QtGui.QColor(color[0], color[1], color[2])))
+		qp.drawEllipse(x+x0, y+y0, 12, 12)
+		qp.setBrush(old_brush)
+
+	def draw_edge(self, view_offset, zoom, f_latlon, t_latlon, color, qp):
+		x0,y0 = view_offset
+		x_f, y_f = self.latlon2xy(f_latlon, zoom)
+		x_t, y_t = self.latlon2xy(t_latlon, zoom)
+		qp.drawLine(x_f+x0, y_f+y0, x_t+x0, y_t+y0)
 
 	def latlon2xy(self, gpos, zoom):
 		lat,lon = gpos
@@ -311,13 +349,9 @@ class path_layer:
 			/ math.pi) / 2.0*n)
 		return (x, y)
 
-	def a2gps(self, apos):
-		return (apos[0]/1e5, apos[1]/1e5/32.0)
+	def ap2gp(self, apos):
+		return [apos[0]/1e5, apos[1]/1e5]
 
-	def draw_vetex(self, view_offset, latlon, zoom, qp):
-		x0,y0 = view_offset
-		x,y = self.latlon2xy(latlon, zoom)
-		qp.drawEllipse(x+x0, y+y0, 12, 12)
 
 if __name__ == '__main__':
 	main(sys.argv)
