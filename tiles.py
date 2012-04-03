@@ -226,17 +226,16 @@ class Form(QtGui.QMainWindow):
 		if e.key() == QtCore.Qt.Key_O:
 			fname = open_file_dialog(self)
 			if is_vof_file(str(fname)):
-				layer = vof_layer()
+				layer = vof_layer(self)
 				layer.read_dump(fname)
 				self.layers.append(layer)
 			else:
-				layer = path_layer()
+				layer = path_layer(self)
 				layer.read_dump(fname)
 				self.layers.append(layer)
 		for layer in self.layers:
 			layer.key_press_event(e)
 		self.standard_update()
-
 
 	def double_distance(self, x):
 		if x < 0:
@@ -296,8 +295,8 @@ def open_file_dialog(parent):
 		
 
 class layer_interface:
-	def __init__(self):
-		pass
+	def __init__(self, widget):
+		self.widget = widget
 
 	def read_dump(self, fname):
 		pass
@@ -310,8 +309,8 @@ class layer_interface:
 
 
 class path_layer(layer_interface):
-	def __init__(self):
-		layer_interface.__init__(self)
+	def __init__(self, widget):
+		layer_interface.__init__(self, widget)
 		self.paths = []
 
 	def read_dump(self, fname):
@@ -363,8 +362,8 @@ class path_layer(layer_interface):
 
 
 class vof_layer(layer_interface):
-	def __init__(self):
-		layer_interface.__init__(self)
+	def __init__(self, widget):
+		layer_interface.__init__(self, widget)
 		self.show_verts = True
 
 	# public
@@ -444,12 +443,13 @@ class vof_layer(layer_interface):
 				ignored += 1
 		print 'ignored %d/%d grey vertices' % (ignored, len(verts))
 		painter.setBrush(brush)
-	
+		
 	def draw_vertex(self, view_offset, zoom, latlon, painter):
+		vertex_size = 8
 		x0,y0 = view_offset
 		x,y = self.latlon2xy(latlon, zoom)
-		x,y = (x-12/2, y-12/2)
-		painter.drawEllipse(x+x0, y+y0, 12, 12)
+		x,y = (x-vertex_size/2, y-vertex_size/2)
+		painter.drawEllipse(x+x0, y+y0, vertex_size, vertex_size)
 
 	def process_dump(self, graph, path, fromto):
 		self.path = self.process_path_recs(path)
@@ -467,7 +467,7 @@ class vof_layer(layer_interface):
 		self.grey_verts = grey_verts.difference(white_verts)
 
 	def view_geo_rect(self, view_offset, zoom):
-		w,h = (800, 600)
+		w,h = self.widget.window_size()
 		x0,y0 = view_offset
 		xa,ya = (abs(x0), abs(y0)+h)
 		a_lat,a_lon = self.xy2latlon((xa, ya), zoom)
