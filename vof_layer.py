@@ -6,9 +6,11 @@ import math
 from PyQt4 import QtCore, QtGui, QtNetwork
 import layers, vof_dump
 
+
 class layer(layers.layer_interface):
-	def __init__(self, widget):
+	def __init__(self, widget, zoom):
 		layers.layer_interface.__init__(self, widget)
+		self.zoom = zoom
 		self.show_verts = True
 
 	# public
@@ -18,6 +20,7 @@ class layer(layers.layer_interface):
 
 	# public
 	def paint(self, view_offset, zoom, painter):
+		self.zoom = zoom
 		self.draw_edges(self.white, view_offset, zoom, (0, 0, 0), painter)
 		self.draw_edges(self.grey, view_offset, zoom, (0, 0, 0), painter)
 		self.draw_white_verts(self.white_verts, view_offset, zoom, painter)
@@ -34,8 +37,10 @@ class layer(layers.layer_interface):
 		view_rect = self.view_geo_rect(view_offset, zoom)
 		ignored = 0
 		for e in edges:
-			if view_rect.contains(e.source) or view_rect.contains(e.target):
-				self.draw_edge(view_offset, zoom, e.source, e.target, painter)
+			if view_rect.contains(e.source.gpos)\
+				or	view_rect.contains(e.target.gpos):
+				self.draw_edge(view_offset, zoom, e.source.gpos,
+					e.target.gpos, painter)
 			else:
 				ignored += 1
 		print 'ignored %d/%d edges' % (ignored, len(edges))
@@ -43,8 +48,8 @@ class layer(layers.layer_interface):
 
 	def draw_edge(self, view_offset, zoom, f_latlon, t_latlon, painter):
 		x0,y0 = view_offset
-		x_f, y_f = self.latlon2xy(f_latlon, zoom)
-		x_t, y_t = self.latlon2xy(t_latlon, zoom)		
+		x_f, y_f = mercator.gpos2xy(f_latlon, zoom)
+		x_t, y_t = mercator.qpos2xy(t_latlon, zoom)		
 		painter.drawLine(x_f+x0, y_f+y0, x_t+x0, y_t+y0)
 	
 	def draw_white_verts(self, verts, view_offset, zoom, painter):
@@ -54,7 +59,7 @@ class layer(layers.layer_interface):
 		view_rect = self.view_geo_rect(view_offset, zoom)
 		ignored = 0
 		for v in verts:
-			if view_rect.contains(v):
+			if view_rect.contains(v.gpos):
 				color = (255, 255, 255)
 				if v == self.fromto[0]:
 					color = (255, 0, 0)
@@ -67,7 +72,7 @@ class layer(layers.layer_interface):
 				self.draw_vertex(view_offset, zoom, v, painter)
 			else:
 				ignored += 1
-		print 'ignored %d/%d white vertices' % (ignored, len(verts))
+		print 'ignored %g%% white vertices' % (ignored/len(verts)*100, )
 		painter.setBrush(brush)
 
 	def draw_grey_verts(self, verts, view_offset, zoom, painter):
@@ -82,17 +87,17 @@ class layer(layers.layer_interface):
 		view_rect = self.view_geo_rect(view_offset, zoom)
 		ignored = 0
 		for v in verts:
-			if view_rect.contains(v):
+			if view_rect.contains(v.gpos):
 				self.draw_vertex(view_offset, zoom, v, painter)
 			else:
 				ignored += 1
-		print 'ignored %d/%d grey vertices' % (ignored, len(verts))
+		print 'ignored %g%% grey vertices' % (ignored/len(verts)*100, )
 		painter.setBrush(brush)
 		
-	def draw_vertex(self, view_offset, zoom, latlon, painter):
+	def draw_vertex(self, view_offset, zoom, v, painter):
 		vertex_size = 8
 		x0,y0 = view_offset
-		x,y = self.latlon2xy(latlon, zoom)
+		x,y = v.xypos
 		x,y = (x-vertex_size/2, y-vertex_size/2)
 		painter.drawEllipse(x+x0, y+y0, vertex_size, vertex_size)
 
@@ -102,22 +107,38 @@ class layer(layers.layer_interface):
 		edges = self.process_graph_recs(graph)
 
 		white, grey = self.split_graph_record_set(edges)
-		white_verts = self.create_unique_vertex_list(white)
-		grey_verts = self.create_unique_vertex_list(grey)
 
-		self.white = {edge(r.source, r.target) for r in white}
+		white_verts = {vertex(gpos) 
+			for gpos in self.create_unique_gpos_set(white)}
+		self.calculate_vertices_xy(white_verts)
 		self.white_verts = white_verts
-		self.grey = {edge(r.source, r.target) for r in grey}
+
+		grey_verts = {vertex(gpos)
+			for gpos in self.create_unique_gpos_set(grey)}
+		self.calculate_vertices_xy(white_verts)
+
+		self.white = {edge(vertex(r.source), vertex(r.target)) for r in white}
+		self.grey = {edge(vertex(r.source), vertex(r.target)) for r in grey}
 		self.grey = self.grey.difference(self.white)
-		self.grey_verts = grey_verts.difference(white_verts)
+		self.grey_verts = grey_verts.difference(white_verts)	
+
+
+	def calculate_vertices_xy(self, verts):
+		for v in verts:
+			v.calculate_xy(self.zoom)
+
+	def calculate_edges_xy(self, verts):
+		for e in edge:
+			e.source.calculate_xy(self.zoom)
+			e.target.calculate_xy(self.zoom)
 
 	def view_geo_rect(self, view_offset, zoom):
 		w,h = self.widget.window_size()
 		x0,y0 = view_offset
 		xa,ya = (abs(x0), abs(y0)+h)
-		a_lat,a_lon = self.xy2latlon((xa, ya), zoom)
-		b_lat,b_lon = self.xy2latlon((xa+w, ya-h), zoom)
-		return latlon_rect(gpspos(a_lat, a_lon), gpspos(b_lat, b_lon))
+		a_gpos = mercator.xy2gps((xa, ya), zoom)
+		b_gpos = mercator.xy2gps((xa+w, ya+h), zoom)
+		return latlon_rect(a_gpos, b_gpos)
 
 	def process_path_recs(self, path):
 		return {gpspos(p[1], p[0]) for p in path}
@@ -132,53 +153,65 @@ class layer(layers.layer_interface):
 	def split_graph_record_set(self, records):
 		white = []; grey = []
 		for r in records:
-			if r.color == Vertex.WHITE:
+			if r.color == vertex.WHITE:
 				white.append(r)
-			elif r.color == Vertex.GREY:
+			elif r.color == vertex.GREY:
 				grey.append(r)
 			else:
 				print 'unknown color:%d' % r.color
 		return (white, grey)
 
-	def create_unique_vertex_list(self, edges):
+	def create_unique_gpos_set(self, edges):
 		d = set()
 		for e in edges:
 			d.add(e.source)
 			d.add(e.target)
 		return d
 
-	def latlon2xy(self, gpos, zoom):
-		lat,lon = (gpos.lat, gpos.lon)
-		n = 2**zoom*256
-		lat_rad = math.radians(lat)
-		x = int((lon+180.0)/360.0 * n)
-		y = int((1.0 - math.log(math.tan(lat_rad)+(1/math.cos(lat_rad)))
-			/ math.pi) / 2.0*n)
-		return (x, y)
-
-	def xy2latlon(self, xy, zoom):
-		x,y = xy
-		n = 2.0**zoom*256
-		lon_deg = x/n*360.0 - 180.0
-		lat_rad = math.atan(math.sinh(math.pi * (1 - 2*y/n)))
-		lat_deg = math.degrees(lat_rad)
-		return (lat_deg, lon_deg)
-
 	def has_valid_gps(self, record):
 		return record.source.is_valid() and record.target.is_valid()
 
 
 class latlon_rect:
+	r'Geographical rectangle.'
 	def __init__(self, sw, ne):
 		self.sw = sw
 		self.ne = ne
 
-	def contains(self, latlon):
-		ll = latlon
-		return self.sw.lon <= ll.lon and self.ne.lon > ll.lon and \
-			self.sw.lat <= ll.lat and self.ne.lat > ll.lat
+	def contains(self, gpos):
+		return self.sw.lon <= gpos.lon and self.ne.lon > gpos.lon and \
+			self.sw.lat <= gpos.lat and self.ne.lat > gpos.lat
 
 
+class edge:
+	def __init__(self, s, t):
+		self.source = s
+		self.target = t
+
+	def __eq__(self, b):
+		return self.source == b.source and self.target == b.target
+
+	def __hash__(self):
+		return self.target.__hash__()
+
+
+class vertex:
+	BLACK, GREY, WHITE, GREEN = range(0, 4)
+
+	def __init__(self, gpos):
+		self.gpos = gpos
+		self.xypos = (-1, -1)
+
+	def calculate_xy(self, zoom):
+		self.xypos = mercator.gps2xy(self.gpos, zoom)
+
+	def __eq__(self, b):
+		return self.gpos == b.gpos
+
+	def __hash__(self):
+		return self.gpos.__hash__()
+
+		
 class gpspos:
 	def __init__(self, lat, lon):
 		self.lat = lat
@@ -195,20 +228,28 @@ class gpspos:
 		a=int(self.lon*1e5); b=int(self.lat*1e5)
 		return b<<32|a
 
-class Vertex:
-	BLACK, GREY, WHITE, GREEN = range(0, 4)
+class mercator:
+	@staticmethod
+	def gps2xy(gpos, zoom):
+		r'\param gpos gpspos(lat, lon)'
+		lat,lon = (gpos.lat, gpos.lon)
+		n = 2**zoom*256
+		lat_rad = math.radians(lat)
+		x = int((lon+180.0)/360.0 * n)
+		y = int((1.0 - math.log(math.tan(lat_rad)+(1/math.cos(lat_rad)))
+			/ math.pi) / 2.0*n)
+		return (x, y)
 
-class edge:
-	def __init__(self, s, t):
-		gr = graph_record
-		self.source = s
-		self.target = t
+	@staticmethod
+	def xy2gps(xypos, zoom):
+		r'\param xypos (x,y)'
+		x,y = xypos
+		n = 2.0**zoom*256
+		lon_deg = x/n*360.0 - 180.0
+		lat_rad = math.atan(math.sinh(math.pi * (1 - 2*y/n)))
+		lat_deg = math.degrees(lat_rad)
+		return gpspos(lat_deg, lon_deg)
 
-	def __eq__(self, b):
-		return self.source == b.source and self.target == b.target
-
-	def __hash__(self):
-		return self.target.__hash__()
 
 class graph_record:
 	def __init__(self, record):
@@ -225,5 +266,4 @@ class graph_record:
 		self.color = gr['color']
 		self.cost = gr['cost']
 		self.penalty = gr['penalty']
-
 
