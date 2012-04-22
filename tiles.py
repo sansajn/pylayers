@@ -40,7 +40,10 @@ class Form(QtGui.QMainWindow):
 		self.disk_cache.setMaximumCacheSize(500*2**20)
 		self.network.setCache(self.disk_cache)
 
-	
+	def add_layer(self, layer):
+		self.layers.append(layer)
+		layer.zoom_event(self.zoom)
+
 	def paintEvent(self, e):
 		t = time.clock()
 		qp = QtGui.QPainter()
@@ -221,17 +224,20 @@ class Form(QtGui.QMainWindow):
 		self.set_window_title()
 		self.map_changed()
 
+		for layer in self.layers:
+			layer.zoom_event(self.zoom)
+
 	def keyPressEvent(self, e):
 		if e.key() == QtCore.Qt.Key_O:
 			fname = open_file_dialog(self)
 			if is_vof_file(str(fname)):
 				layer = vof_layer.layer(self)
 				layer.read_dump(fname)
-				self.layers.append(layer)
+				self.add_layer(layer)
 			else:
 				layer = path_layer.layer(self)
 				layer.read_dump(fname)
-				self.layers.append(layer)
+				self.add_layer(layer)
 		for layer in self.layers:
 			layer.key_press_event(e)
 		self.standard_update()

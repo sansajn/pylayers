@@ -1,0 +1,8 @@
+python tiles.py
+
+o - open (vof or path dump)
+rmb - pan
+wheel - zoom
+
+
+po vytvorení vrstvy sa volá red_dump() a heď za ňou zoom_event()

@@ -1,11 +1,11 @@
 # -*- coding: utf-8 -*-
-# Implementuje spoločné záležitosti pre vrstvy.
+# Implementuje spoločné rozhranie pre vrstvy.
 # \author Adam Hlavatovič
-# \version 20120403
 
 class layer_interface:
 	def __init__(self, widget):
 		self.widget = widget
+		self.zoom = None
 
 	def read_dump(self, fname):
 		pass
@@ -15,4 +15,7 @@ class layer_interface:
 
 	def key_press_event(self, e):
 		pass
+
+	def zoom_event(self, zoom):
+		self.zoom = zoom
 
