@@ -19,6 +19,8 @@ class layer(layers.layer_interface):
 		self.edge_pen = QtGui.QPen()
 		self.diff_edge_pen = QtGui.QPen(QtGui.QColor(255, 0, 0))
 		self.diff_edge_pen.setWidth(2)
+		self.alternative_edge_pen = QtGui.QPen(QtGui.QColor(0, 0, 255))
+		self.alternative_edge_pen.setWidth(2)
 
 	# public
 	def read_dump(self, fname):
@@ -49,20 +51,37 @@ class layer(layers.layer_interface):
 		WHITE = (255, 255, 255)
 		if len(self.paths) == 0:
 			return		
+		is_alternative_subpath = False
+		alternative_from, alternative_to = ([], [])
+		if self.path_idx > 0:
+			alternatives = alternative_subpaths(self.paths[0], 
+				self.paths[self.path_idx])
+			alternative_from, alternative_to = split_collumns(alternatives)
+
 		path = self.paths[idx]
 		diffs = find_diffs(self.paths, idx)
 		i = 1
 		u = path[0]		
 		while i < len(path):
 			v = path[i]
-			if i == 1:
+			if i == 1:  # source
 				self.draw_vertex(view_offset, zoom, self.ap2gp(u), 
 					(0, 255, 0), painter)
-			elif i == len(path)-1:
+			elif i == len(path)-1:  # target
 				self.draw_vertex(view_offset, zoom, self.ap2gp(v), 
 					(0, 0, 255), painter)
+
+			if i in alternative_from:
+				is_alternative_subpath = True
+			elif i-1 in alternative_to:  # chcem napresiť aj poslednú
+				is_alternative_subpath = False
+	
 			if i-1 in diffs:
-				painter.setPen(self.diff_edge_pen)
+				if is_alternative_subpath:
+					painter.setPen(self.alternative_edge_pen)
+				else:
+					painter.setPen(self.diff_edge_pen)
+
 				self.draw_edge(view_offset, zoom, self.ap2gp(u), 
 					self.ap2gp(v), painter)
 				painter.setPen(self.edge_pen)
@@ -250,3 +269,67 @@ def dict_sort_by_val(d):
 def swap_pair(p):
 	return [p[1], p[0]]
 
+
+# alternatívy
+
+def alternative_subpaths(a, b):
+	alternatives = []
+	c = common_points(a, b)
+	for i in range(0, len(c)-1):
+		couple = (c[i], c[i+1])
+		subpath = middle_points(b, couple)
+		if len(subpath) > small_enough(b):
+			alternatives.append(couple)
+	return alternatives
+
+def common_points(a, b):
+	c = []
+	last_idx = -1
+	for p in a:
+		idx = find(b, p, last_idx+1)
+		if idx != None:
+			c.append(idx)
+			last_idx = idx
+	return c
+
+def middle_points(a, bounds):
+	return a[bounds[0]+1:bounds[1]]
+
+def small_enough(what):
+	return max(5, len(what)/20)
+
+def almoust_all(where, what):
+	count = 0
+	for x in where:
+		if x == what:
+			count += 1
+	k = count/float(len(where))
+	return (k > 0.8, k)
+
+def append_if_not_none(where, what):
+	if what != None:
+		where.append(what)
+
+def find(where, what, offset):
+	idx = None
+	for i in range(offset, len(where)):
+		if where[i] == what:
+			idx = i
+	return idx
+
+def count_values(where, what):
+	count = 0
+	for x in where:
+		if x == what:
+			count += 1
+	return count
+
+def split_collumns(t):
+	colls = []
+	for i in range(0, len(t[0])):
+		colls.append([])
+	for r in range(0, len(t)):
+		for c in range(0, len(t[r])):
+			colls[c].append(t[r][c])
+	return colls
+		
