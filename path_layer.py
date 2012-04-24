@@ -6,6 +6,14 @@ import math, threading
 from PyQt4 import QtCore, QtGui, QtNetwork
 import layers, path_dump
 
+COLORS = {
+	'standard' : QtGui.QColor(0, 0, 0),
+	'diff' : QtGui.QColor(255, 0, 0),
+	'alternative' : QtGui.QColor(178, 0, 255),
+	'source' : QtGui.QColor(0, 255, 0),
+	'target' : QtGui.QColor(0, 0, 255)
+}
+
 
 class layer(layers.layer_interface):
 	def __init__(self, widget):
@@ -17,10 +25,10 @@ class layer(layers.layer_interface):
 		self.ndiff_edges = 0  #!< for filtered path iteration
 
 		self.edge_pen = QtGui.QPen()
-		self.diff_edge_pen = QtGui.QPen(QtGui.QColor(255, 0, 0))
+		self.diff_edge_pen = QtGui.QPen(COLORS['diff'])
 		self.diff_edge_pen.setWidth(2)
-		self.alternative_edge_pen = QtGui.QPen(QtGui.QColor(0, 0, 255))
-		self.alternative_edge_pen.setWidth(2)
+		self.alternative_edge_pen = QtGui.QPen(COLORS['alternative'])
+		self.alternative_edge_pen.setWidth(4)
 
 	# public
 	def read_dump(self, fname):
@@ -49,6 +57,7 @@ class layer(layers.layer_interface):
 	def draw_path(self, idx, view_offset, zoom, painter):
 		RED = (255, 0, 0)
 		WHITE = (255, 255, 255)
+		VIOLET = (111, 89, 255)
 		if len(self.paths) == 0:
 			return		
 		is_alternative_subpath = False
@@ -73,7 +82,7 @@ class layer(layers.layer_interface):
 
 			if i in alternative_from:
 				is_alternative_subpath = True
-			elif i-1 in alternative_to:  # chcem napresiť aj poslednú
+			elif i-1 in alternative_to:  # chcem nakresiť aj poslednú
 				is_alternative_subpath = False
 	
 			if i-1 in diffs:
@@ -85,12 +94,17 @@ class layer(layers.layer_interface):
 				self.draw_edge(view_offset, zoom, self.ap2gp(u), 
 					self.ap2gp(v), painter)
 				painter.setPen(self.edge_pen)
+
+				color = RED
+				if is_alternative_subpath:
+					color = VIOLET
+
 				if i != 1:
 					self.draw_vertex(view_offset, zoom, self.ap2gp(u), 
-						RED, painter)
+						color, painter)
 				if i != len(path)-1:
 					self.draw_vertex(view_offset, zoom, self.ap2gp(v), 
-						RED, painter)
+						color, painter)
 			else:
 				self.draw_edge(view_offset, zoom, self.ap2gp(u), 
 					self.ap2gp(v), painter)
@@ -296,7 +310,7 @@ def middle_points(a, bounds):
 	return a[bounds[0]+1:bounds[1]]
 
 def small_enough(what):
-	return max(5, len(what)/20)
+	return max(5, len(what)/10)
 
 def almoust_all(where, what):
 	count = 0
