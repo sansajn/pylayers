@@ -2,8 +2,10 @@
 import re
 
 class reader:
+	# public
 	def read(self, filename):
-		r'Vráti cesty ako zoznam pozícii [(y,x), ...].'
+		r'''Vráti cesty ako zoznam pozícii [(y,x), ...], kde x a y sú celé
+		čísla lat*1e5, lon*1e5.'''
 		dump = open(filename, 'r')
 		paths = []
 		for ln in dump:
