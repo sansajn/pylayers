@@ -56,16 +56,10 @@ class layer(layers.layer_interface):
 		layers.layer_interface.__init__(self, widget)
 		self.paths = []
 		self.path_idx = 0
-		self.diff_paths = {}
+		self.diff_paths = {}  #!< zoznam rozdielnych ciest
 		self.diff_paths_avail = False
 		self.ndiff_edges = 0  #!< for filtered path iteration
-
-		self.edge_pen = QtGui.QPen()
-		self.diff_edge_pen = QtGui.QPen(COLOR['diff'])
-		self.diff_edge_pen.setWidth(2)
-		self.alternative_edge_pen = QtGui.QPen(COLOR['alternative'])
-		self.alternative_edge_pen.setWidth(4)
-
+		self.diff_primary_alter = []  #!< for draw_path() function
 
 	# public
 	def read_dump(self, fname):
@@ -87,13 +81,13 @@ class layer(layers.layer_interface):
 	# public
 	def key_press_event(self, e):
 		if e.key() == QtCore.Qt.Key_N:
-			self.next_path()
+			self.next_path()			
 		elif e.key() == QtCore.Qt.Key_P:
 			self.prev_path()
 
 	def draw_path(self, idx, view_offset, zoom, painter):
 		path = self.paths[idx]
-		diffs = find_diffs(self.paths, idx)
+		diffs = self.diff_primary_alter
 		
 		is_alternative_subpath = False
 		alternative_from, alternative_to = ([], [])
@@ -194,6 +188,7 @@ class layer(layers.layer_interface):
 					self.widget.standard_update()
 					return
 				i += 1
+		self.diff_primary_alter = find_diffs(self.paths, self.path_idx)
 				
 	def prev_path(self):
 		if self.ndiff_edges == 0:
@@ -210,6 +205,7 @@ class layer(layers.layer_interface):
 					self.widget.standard_update()
 					return
 				i -= 1
+		self.diff_primary_alter = find_diffs(self.paths, self.path_idx)			
 
 	def most_diffs_paths(self):
 		if len(self.diff_paths):
