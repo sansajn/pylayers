@@ -6,12 +6,48 @@ import math, threading
 from PyQt4 import QtCore, QtGui, QtNetwork
 import layers, path_dump
 
-COLORS = {
-	'standard' : QtGui.QColor(0, 0, 0),
-	'diff' : QtGui.QColor(255, 0, 0),
-	'alternative' : QtGui.QColor(178, 0, 255),
-	'source' : QtGui.QColor(0, 255, 0),
-	'target' : QtGui.QColor(0, 0, 255)
+
+RED = (255, 0, 0)
+GREEN = (0, 255, 0)
+BLUE = (0, 0, 255)
+BLACK = (0, 0, 0)
+WHITE = (255, 255, 255)
+VIOLET = (111, 89, 255)
+YELLOW = (255, 239, 20)
+
+def MakeColor(c):
+	return QtGui.QColor(c[0], c[1], c[2])
+
+COLOR = {
+	'standard' : MakeColor(BLACK),
+	'diff' : MakeColor(RED),
+	'alternative' : MakeColor(VIOLET),
+	'source' : MakeColor(GREEN),
+	'target' : MakeColor(BLUE),
+	'common' : MakeColor(YELLOW),
+	'primary' : MakeColor(WHITE),
+	'black' : MakeColor(BLACK)
+}
+
+PEN = {
+	'standard' : QtGui.QPen(COLOR['standard']),
+	'diff' : QtGui.QPen(COLOR['diff']),
+	'alternative' : QtGui.QPen(COLOR['alternative']),
+	'source' : QtGui.QPen(COLOR['source']),
+	'target' : QtGui.QPen(COLOR['target']),
+	'common' : QtGui.QPen(COLOR['common']),
+	'primary' : QtGui.QPen(COLOR['standard']),
+	'black' : QtGui.QPen(COLOR['black'])
+}
+
+BRUSH = {
+	'standard' : QtGui.QBrush(COLOR['standard']),
+	'diff' : QtGui.QBrush(COLOR['diff']),
+	'alternative' : QtGui.QBrush(COLOR['alternative']),
+	'source' : QtGui.QBrush(COLOR['source']),
+	'target' : QtGui.QBrush(COLOR['target']),
+	'common' : QtGui.QBrush(COLOR['common']),
+	'primary' : QtGui.QBrush(COLOR['primary'])
 }
 
 
@@ -25,10 +61,11 @@ class layer(layers.layer_interface):
 		self.ndiff_edges = 0  #!< for filtered path iteration
 
 		self.edge_pen = QtGui.QPen()
-		self.diff_edge_pen = QtGui.QPen(COLORS['diff'])
+		self.diff_edge_pen = QtGui.QPen(COLOR['diff'])
 		self.diff_edge_pen.setWidth(2)
-		self.alternative_edge_pen = QtGui.QPen(COLORS['alternative'])
+		self.alternative_edge_pen = QtGui.QPen(COLOR['alternative'])
 		self.alternative_edge_pen.setWidth(4)
+
 
 	# public
 	def read_dump(self, fname):
@@ -42,7 +79,7 @@ class layer(layers.layer_interface):
 		self.dump_stats_thread.start()
 
 	# public
-	def paint(self, view_offset, zoom, painter):
+	def paint(self, view_offset, zoom, painter):		
 		self.draw_path(0, view_offset, zoom, painter)
 		if self.path_idx > 0:
 			self.draw_path(self.path_idx, view_offset, zoom, painter)
@@ -55,84 +92,73 @@ class layer(layers.layer_interface):
 			self.prev_path()
 
 	def draw_path(self, idx, view_offset, zoom, painter):
-		RED = (255, 0, 0)
-		WHITE = (255, 255, 255)
-		VIOLET = (111, 89, 255)
-		if len(self.paths) == 0:
-			return		
-		is_alternative_subpath = False
-		alternative_from, alternative_to = ([], [])
-		if self.path_idx > 0:
-			alternatives = alternative_subpaths(self.paths[0], 
-				self.paths[self.path_idx])
-			alternative_from, alternative_to = split_collumns(alternatives)
-
 		path = self.paths[idx]
 		diffs = find_diffs(self.paths, idx)
-		i = 1
-		u = path[0]		
-		while i < len(path):
-			v = path[i]
-			if i == 1:  # source
-				self.draw_vertex(view_offset, zoom, self.ap2gp(u), 
-					(0, 255, 0), painter)
-			elif i == len(path)-1:  # target
-				self.draw_vertex(view_offset, zoom, self.ap2gp(v), 
-					(0, 0, 255), painter)
-
+		
+		is_alternative_subpath = False
+		alternative_from, alternative_to = ([], [])
+		if idx > 0:
+			alternatives = alternative_subpaths(self.paths[0],	self.paths[idx])
+			if len(alternatives) > 0:
+				alternative_from, alternative_to = split_collumns(alternatives)
+		
+		i = 0
+		while i < len(path)-1:
+			u = path[i]
+			v = path[i+1]
+			
 			if i in alternative_from:
 				is_alternative_subpath = True
-			elif i-1 in alternative_to:  # chcem nakresiť aj poslednú
+			elif i in alternative_to:
 				is_alternative_subpath = False
-	
-			if i-1 in diffs:
+			
+			if i == 0:		
+				pen = PEN['source']
+				color = BRUSH['source']
+			elif i+1 == len(path)-1:
+				pen = PEN['target']
+				color = BRUSH['target']
+			elif idx > 0:
 				if is_alternative_subpath:
-					painter.setPen(self.alternative_edge_pen)
-				else:
-					painter.setPen(self.diff_edge_pen)
-
-				self.draw_edge(view_offset, zoom, self.ap2gp(u), 
-					self.ap2gp(v), painter)
-				painter.setPen(self.edge_pen)
-
-				color = RED
-				if is_alternative_subpath:
-					color = VIOLET
-
-				if i != 1:
-					self.draw_vertex(view_offset, zoom, self.ap2gp(u), 
-						color, painter)
-				if i != len(path)-1:
-					self.draw_vertex(view_offset, zoom, self.ap2gp(v), 
-						color, painter)
+					pen = PEN['alternative']
+					color = BRUSH['alternative']
+				elif i in diffs:  # difs
+					pen = PEN['diff']
+					color = BRUSH['diff']
+				else:  # common vetrices
+					pen = PEN['common']
+					color = BRUSH['common']
 			else:
-				self.draw_edge(view_offset, zoom, self.ap2gp(u), 
-					self.ap2gp(v), painter)
-				if i != 1:
-					self.draw_vertex(view_offset, zoom, self.ap2gp(u), 
-						WHITE, painter)
-				if i != len(path)-1:
-					self.draw_vertex(view_offset, zoom, self.ap2gp(v), 
-						WHITE, painter)
-			u = v
+				pen = PEN['primary']
+				color = BRUSH['primary']
+				
+			painter.setPen(PEN['standard'])
+			painter.setBrush(color)
+			if i == 0:
+				self.draw_vertex(view_offset, zoom, self.ap2gp(u), painter)
+			else:
+				self.draw_vertex(view_offset, zoom, self.ap2gp(v), painter)
+							
+			painter.setPen(pen)
+			self.draw_edge(view_offset, zoom, self.ap2gp(u), self.ap2gp(v), painter)
+			
 			i += 1
-		self.draw_legend((0, 0), painter)
-
+			
+		painter.setPen(PEN['black'])
+		self.draw_legend((5, 5), painter)
+				
 	def draw_edge(self, view_offset, zoom, f_latlon, t_latlon, qp):
 		x0,y0 = view_offset
 		x_f, y_f = self.latlon2xy(f_latlon, zoom)
 		x_t, y_t = self.latlon2xy(t_latlon, zoom)
 		qp.drawLine(x_f+x0, y_f+y0, x_t+x0, y_t+y0)
-
-	def draw_vertex(self, view_offset, zoom, latlon, color, qp):
+		
+	def draw_vertex(self, view_offset, zoom, latlon, qp):
 		vertex_size = 6
 		x0,y0 = view_offset
 		x,y = self.latlon2xy(latlon, zoom)
 		x,y = (x-vertex_size/2, y-vertex_size/2)
-		old_brush = qp.brush()
-		qp.setBrush(QtGui.QBrush(QtGui.QColor(color[0], color[1], color[2])))
 		qp.drawEllipse(x+x0, y+y0, vertex_size, vertex_size)
-		qp.setBrush(old_brush)
 
 	def draw_legend(self, pos, qp):
 		text = 'Keys: N=next, P=previous\n'
