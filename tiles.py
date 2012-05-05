@@ -232,11 +232,11 @@ class Form(QtGui.QMainWindow):
 			fname = open_file_dialog(self)
 			if is_vof_file(str(fname)):
 				layer = vof_layer.layer(self)
-				layer.read_data(fname)
+				layer.create(fname)
 				self.add_layer(layer)
 			else:
 				layer = path_layer.layer(self)
-				layer.read_data(fname)
+				layer.create(fname)
 				self.add_layer(layer)
 		for layer in self.layers:
 			layer.key_press_event(e)
@@ -269,6 +269,8 @@ class Form(QtGui.QMainWindow):
 
 	def mousePressEvent(self, e):
 		self.click_pos = (e.x(), e.y())
+		for layer in self.layers:
+			layer.mouse_press_event(e)
 
 	def mouseMoveEvent(self, e):
 		diff = (e.x() - self.click_pos[0], e.y() - self.click_pos[1])
