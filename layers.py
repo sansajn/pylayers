@@ -1,18 +1,22 @@
 # -*- coding: utf-8 -*-
-# Implementuje spoločné záležitosti pre vrstvy.
+# Common layer interface.
 # \author Adam Hlavatovič
-# \version 20120403
 
 class layer_interface:
 	def __init__(self, widget):
 		self.widget = widget
+		self.zoom = None
 
-	def read_dump(self, fname):
+	def read_data(self, fname):
+		r'Reads layer data, before zoom_event and paint is called.'
 		pass
 
-	def paint(self, view_offset, zoom, painter):
+	def paint(self, view_offset, painter):
 		pass
 
-	def key_press_event(self, e):
+	def key_press_event(self, event):
 		pass
+
+	def zoom_event(self, zoom):
+		self.zoom = zoom
 

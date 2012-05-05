@@ -62,8 +62,10 @@ class layer(layers.layer_interface):
 		self.diff_primary_alter = []  #!< for draw_path() function
 		self.drawable = drawable_group()
 
+	#@{ layer_interface
+
 	# public
-	def read_dump(self, fname):
+	def read_data(self, fname):
 		reader = path_dump.reader()
 		self.paths = reader.read(fname)		
 
@@ -74,10 +76,8 @@ class layer(layers.layer_interface):
 		self.dump_stats_thread.start()
 
 	# public
-	def paint(self, view_offset, zoom, painter):		
-		self.draw_path(0, view_offset, zoom, painter)
-		if self.path_idx > 0:
-			self.draw_path(self.path_idx, view_offset, zoom, painter)
+	def paint(self, view_offset, painter):
+		self.draw_scene(view_offset, painter)
 
 	# public
 	def key_press_event(self, e):
@@ -85,13 +85,70 @@ class layer(layers.layer_interface):
 			self.next_path()			
 		elif e.key() == QtCore.Qt.Key_P:
 			self.prev_path()
+		else:
+			return
+		self.create_drawable_data()
 
-	def draw_path(self, idx, view_offset, zoom, painter):
-		pass
+	# public
+	def zoom_event(self, zoom):
+		layers.layer_interface.zoom_event(self, zoom)
+		self.create_drawable_data()
+
+	#@} layer_interface
+
+	def draw_scene(self, view_offset, painter):
+		# edges
+		old_pen = painter.pen()
+		painter.setPen(PEN['black'])
+		self.draw_item_set(self.drawable.edges, view_offset, painter)
+
+		# verts
+		painter.setPen(PEN['black'])
+		old_brush = painter.brush()
+		painter.setBrush(BRUSH['primary'])
+
+		self.draw_item_set(self.drawable.primary, view_offset, painter)
+		
+		painter.setBrush(BRUSH['common'])
+		self.draw_item_set(self.drawable.common, view_offset, painter)
+
+		painter.setBrush(BRUSH['diff'])
+		self.draw_item_set(self.drawable.diff, view_offset, painter)
+
+		painter.setBrush(BRUSH['alternative'])
+		self.draw_item_set(self.drawable.alternative, view_offset, painter)
+
+		painter.setBrush(BRUSH['source'])
+		self.draw_item_set(self.drawable.source, view_offset, painter)
+
+		painter.setBrush(BRUSH['target'])
+		self.draw_item_set(self.drawable.target, view_offset, painter)
+
+		self.draw_legend((5, 5), painter)
+
+		painter.setPen(old_pen)
+		painter.setBrush(old_brush)
+
+
+	def draw_item_set(self, items, view_offset, painter):
+		for item in items:
+			item.paint(view_offset, painter)
+
 
 	def create_drawable_data(self):
 		self.drawable.clear()
+		self.process_path(0)
+		if self.path_idx > 0:
+			self.process_path(self.path_idx)
 
+		# stats
+		print '#path_layerc::reate_drawable_data()'
+		print 'primary:%d' % (len(self.drawable.primary), )
+		print 'common:%d' % (len(self.drawable.common), )
+		print 'diff:%d' % (len(self.drawable.diff), )
+		print 'alternative:%d' % (len(self.drawable.alternative), )
+
+	def process_path(self, idx):
 		path = self.paths[idx]
 		diffs = self.diff_primary_alter
 		
@@ -129,42 +186,34 @@ class layer(layers.layer_interface):
 				vtype = VERTEX_TYPE.PRIMARY
 				
 			if i == 0:
-				self.append_drawable(u, VERTEX_TYPE.SOURCE)
+				self.append_drawable_vertex(u, VERTEX_TYPE.SOURCE)
 			else:
-				sefl.append_drawable(v, vtype)
+				self.append_drawable_vertex(v, vtype)
+
+			self.drawable.edges.append(
+				drawable_edge(self.latlon2xy(self.ap2gp(u), self.zoom),
+					self.latlon2xy(self.ap2gp(v), self.zoom)))
 			
 			i += 1
 
-	def append_drawable(self, v, vert_type):
+	def append_drawable_vertex(self, v, vert_type):
+		vert = drawable_vertex(self.latlon2xy(self.ap2gp(v), self.zoom), 3)
 		if vert_type == VERTEX_TYPE.PRIMARY:
-			self.drawable.primary.append(v)
+			self.drawable.primary.append(vert)
 		elif vert_type == VERTEX_TYPE.COMMON:
-			self.drawable.primary.append(v)
+			self.drawable.common.append(vert)
 		elif vert_type == VERTEX_TYPE.DIFF:
-			self.drawable.diff.append(v)
+			self.drawable.diff.append(vert)
 		elif vert_type == VERTEX_TYPE.ALTERNATIVE:
-			self.drawable.alternative.append(v)
+			self.drawable.alternative.append(vert)
 		elif vert_type == VERTEX_TYPE.SOURCE:
-			self.drawable.source.append(v)
+			self.drawable.source.append(vert)
 		elif vert_type == VERTEX_TYPE.TARGET:
-			self.drawable.target.append(v)
-		else
+			self.drawable.target.append(vert)
+		else:
 			print 'Unknown vertex type!'
 
 				
-	def draw_edge(self, view_offset, zoom, f_latlon, t_latlon, qp):
-		x0,y0 = view_offset
-		x_f, y_f = self.latlon2xy(f_latlon, zoom)
-		x_t, y_t = self.latlon2xy(t_latlon, zoom)
-		qp.drawLine(x_f+x0, y_f+y0, x_t+x0, y_t+y0)
-		
-	def draw_vertex(self, view_offset, zoom, latlon, qp):
-		vertex_size = 6
-		x0,y0 = view_offset
-		x,y = self.latlon2xy(latlon, zoom)
-		x,y = (x-vertex_size/2, y-vertex_size/2)
-		qp.drawEllipse(x+x0, y+y0, vertex_size, vertex_size)
-
 	def draw_legend(self, pos, qp):
 		text = 'Keys: N=next, P=previous\n'
 		text += 'Path:%d/%d\n' % (self.path_idx, len(self.paths)-1)
@@ -389,36 +438,53 @@ class drawable_vertex:
 		self.center = QtCore.QPoint(center[0], center[1])
 		self.down = False
 
+	def is_down(self):
+		return self.down
+
+	def set_down(self, state):
+		self.down = state
+
 	def contains(self, pos):
 		d = math.sqrt((self.center.x() - pos[0])**2 + 
-			(self.center.y() - pos[1])**2))
+			(self.center.y() - pos[1])**2)
 		return d < self.r
 
 	def down_event(self):
 		self.down = not self.down
+		
+	def paint(self, view_offset, painter):
+		x0,y0 = view_offset
+		c = QtCore.QPoint(self.center.x()+x0, self.center.y()+y0)
+		painter.drawEllipse(c, self.r, self.r)
 
-	def is_down(self):
-		return self.down
-	
-	def paint(self, painter):
-		painter.drawEllipse(self.center, self.r, self.r)
+
+class drawable_edge:
+	def __init__(self, s, t):
+		self.s = s
+		self.t = t
+
+	def paint(self, view_offset, painter):
+		x0,y0 = view_offset
+		painter.drawLine(self.s[0]+x0, self.s[1]+y0, 
+			self.t[0]+x0, self.t[1]+y0)
+
 
 class drawable_group:
 	def __init__(self):
+		self.init()
+
+	def init(self):
 		self.primary = []
 		self.common = []
 		self.diff = []
 		self.alternative = []
 		self.source = []
 		self.target = []
+		self.edges = []
 
 	def clear(self):
-		self.primary = []
-		self.common = []
-		self.diff = []
-		self.alternative = []
-		self.source = []
-		self.target = []
+		self.init()
+
 
 class VERTEX_TYPE:
 	UNKNOWN = 0
