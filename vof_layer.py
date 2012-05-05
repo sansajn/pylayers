@@ -14,13 +14,13 @@ class layer(layers.layer_interface):
 		self.show_verts = True
 
 	# public
-	def read_dump(self, fname):
+	def create(self, fname):
 		reader = vof_dump.reader(fname)
 		self.process_dump(reader.graph(), reader.path(), reader.fromto())
 
 	# public
-	def paint(self, view_offset, zoom, painter):
-		self.zoom = zoom
+	def paint(self, view_offset, painter):
+		zoom = self.zoom
 		self.draw_edges(self.white, view_offset, zoom, (0, 0, 0), painter)
 		self.draw_edges(self.grey, view_offset, zoom, (0, 0, 0), painter)
 		self.draw_white_verts(self.white_verts, view_offset, zoom, painter)
@@ -29,7 +29,7 @@ class layer(layers.layer_interface):
 	def key_press_event(self, e):
 		if e.key() == QtCore.Qt.Key_V:
 			self.show_verts = not self.show_verts
-		
+
 	def draw_edges(self, edges, view_offset, zoom, color, painter):
 		brush = painter.brush()
 		painter.setBrush(QtGui.QBrush(

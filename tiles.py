@@ -231,7 +231,7 @@ class Form(QtGui.QMainWindow):
 		if e.key() == QtCore.Qt.Key_O:
 			fname = open_file_dialog(self)
 			if is_vof_file(str(fname)):
-				layer = vof_layer.layer(self)
+				layer = vof_layer.layer(self, self.zoom)
 				layer.create(fname)
 				self.add_layer(layer)
 			else:
