@@ -60,6 +60,7 @@ class layer(layers.layer_interface):
 		self.diff_paths_avail = False
 		self.ndiff_edges = 0  #!< for filtered path iteration
 		self.diff_primary_alter = []  #!< for draw_path() function
+		self.drawable = drawable_group()
 
 	# public
 	def read_dump(self, fname):
@@ -86,6 +87,11 @@ class layer(layers.layer_interface):
 			self.prev_path()
 
 	def draw_path(self, idx, view_offset, zoom, painter):
+		pass
+
+	def create_drawable_data(self):
+		self.drawable.clear()
+
 		path = self.paths[idx]
 		diffs = self.diff_primary_alter
 		
@@ -100,46 +106,51 @@ class layer(layers.layer_interface):
 		while i < len(path)-1:
 			u = path[i]
 			v = path[i+1]
-			
+
+			vtype = VERTEX_TYPE.UNKNOWN
+
 			if i in alternative_from:
 				is_alternative_subpath = True
 			elif i in alternative_to:
 				is_alternative_subpath = False
 			
 			if i == 0:		
-				pen = PEN['source']
-				color = BRUSH['source']
+				vtype = VERTEX_TYPE.SOURCE
 			elif i+1 == len(path)-1:
-				pen = PEN['target']
-				color = BRUSH['target']
+				vtype = VERTEX_TYPE.TARGET
 			elif idx > 0:
 				if is_alternative_subpath:
-					pen = PEN['alternative']
-					color = BRUSH['alternative']
+					vtype = VERTEX_TYPE.ALTERNATIVE
 				elif i in diffs:  # difs
-					pen = PEN['diff']
-					color = BRUSH['diff']
+					vtype = VERTEX_TYPE.DIFF
 				else:  # common vetrices
-					pen = PEN['common']
-					color = BRUSH['common']
+					vtype = VERTEX_TYPE.COMMON
 			else:
-				pen = PEN['primary']
-				color = BRUSH['primary']
+				vtype = VERTEX_TYPE.PRIMARY
 				
-			painter.setPen(PEN['standard'])
-			painter.setBrush(color)
 			if i == 0:
-				self.draw_vertex(view_offset, zoom, self.ap2gp(u), painter)
+				self.append_drawable(u, VERTEX_TYPE.SOURCE)
 			else:
-				self.draw_vertex(view_offset, zoom, self.ap2gp(v), painter)
-							
-			painter.setPen(pen)
-			self.draw_edge(view_offset, zoom, self.ap2gp(u), self.ap2gp(v), painter)
+				sefl.append_drawable(v, vtype)
 			
 			i += 1
-			
-		painter.setPen(PEN['black'])
-		self.draw_legend((5, 5), painter)
+
+	def append_drawable(self, v, vert_type):
+		if vert_type == VERTEX_TYPE.PRIMARY:
+			self.drawable.primary.append(v)
+		elif vert_type == VERTEX_TYPE.COMMON:
+			self.drawable.primary.append(v)
+		elif vert_type == VERTEX_TYPE.DIFF:
+			self.drawable.diff.append(v)
+		elif vert_type == VERTEX_TYPE.ALTERNATIVE:
+			self.drawable.alternative.append(v)
+		elif vert_type == VERTEX_TYPE.SOURCE:
+			self.drawable.source.append(v)
+		elif vert_type == VERTEX_TYPE.TARGET:
+			self.drawable.target.append(v)
+		else
+			print 'Unknown vertex type!'
+
 				
 	def draw_edge(self, view_offset, zoom, f_latlon, t_latlon, qp):
 		x0,y0 = view_offset
@@ -306,7 +317,7 @@ def swap_pair(p):
 	return [p[1], p[0]]
 
 
-# alternatívy
+# alternatives
 
 def alternative_subpaths(a, b):
 	alternatives = []
@@ -369,3 +380,52 @@ def split_collumns(t):
 			colls[c].append(t[r][c])
 	return colls
 		
+
+# drawable
+
+class drawable_vertex:
+	def __init__(self, center, r):
+		self.r = r
+		self.center = QtCore.QPoint(center[0], center[1])
+		self.down = False
+
+	def contains(self, pos):
+		d = math.sqrt((self.center.x() - pos[0])**2 + 
+			(self.center.y() - pos[1])**2))
+		return d < self.r
+
+	def down_event(self):
+		self.down = not self.down
+
+	def is_down(self):
+		return self.down
+	
+	def paint(self, painter):
+		painter.drawEllipse(self.center, self.r, self.r)
+
+class drawable_group:
+	def __init__(self):
+		self.primary = []
+		self.common = []
+		self.diff = []
+		self.alternative = []
+		self.source = []
+		self.target = []
+
+	def clear(self):
+		self.primary = []
+		self.common = []
+		self.diff = []
+		self.alternative = []
+		self.source = []
+		self.target = []
+
+class VERTEX_TYPE:
+	UNKNOWN = 0
+	PRIMARY = 1
+	COMMON = 2
+	DIFF = 3
+	ALTERNATIVE = 4
+	SOURCE = 5
+	TARGET = 6
+
