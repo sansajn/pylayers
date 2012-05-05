@@ -60,12 +60,14 @@ class layer(layers.layer_interface):
 		self.diff_paths_avail = False
 		self.ndiff_edges = 0  #!< for filtered path iteration
 		self.diff_primary_alter = []  #!< for draw_path() function
-		self.drawable = drawable_group()
+		self.edges = drawable_group()
+		self.verts = drawable_vertices()
+		self.view_offset = (0, 0)
 
 	#@{ layer_interface
 
 	# public
-	def read_data(self, fname):
+	def create(self, fname):
 		reader = path_dump.reader()
 		self.paths = reader.read(fname)		
 
@@ -77,6 +79,7 @@ class layer(layers.layer_interface):
 
 	# public
 	def paint(self, view_offset, painter):
+		self.view_offset = view_offset
 		self.draw_scene(view_offset, painter)
 
 	# public
@@ -94,35 +97,41 @@ class layer(layers.layer_interface):
 		layers.layer_interface.zoom_event(self, zoom)
 		self.create_drawable_data()
 
+	# public
+	def mouse_press_event(self, event):
+		print '#path_layer::mouse_press_event()'
+		if event.buttons() & QtCore.Qt.LeftButton:
+			x0,y0 = self.view_offset
+			self.verts.down_event((event.x()-x0, event.y()-y0))
+
 	#@} layer_interface
 
 	def draw_scene(self, view_offset, painter):
 		# edges
 		old_pen = painter.pen()
 		painter.setPen(PEN['black'])
-		self.draw_item_set(self.drawable.edges, view_offset, painter)
+		self.edges.paint(view_offset, painter)
 
 		# verts
 		painter.setPen(PEN['black'])
 		old_brush = painter.brush()
 		painter.setBrush(BRUSH['primary'])
-
-		self.draw_item_set(self.drawable.primary, view_offset, painter)
+		self.verts.primary.paint(view_offset, painter)
 		
 		painter.setBrush(BRUSH['common'])
-		self.draw_item_set(self.drawable.common, view_offset, painter)
+		self.verts.common.paint(view_offset, painter)
 
 		painter.setBrush(BRUSH['diff'])
-		self.draw_item_set(self.drawable.diff, view_offset, painter)
+		self.verts.diff.paint(view_offset, painter)
 
 		painter.setBrush(BRUSH['alternative'])
-		self.draw_item_set(self.drawable.alternative, view_offset, painter)
+		self.verts.alternative.paint(view_offset, painter)
 
 		painter.setBrush(BRUSH['source'])
-		self.draw_item_set(self.drawable.source, view_offset, painter)
+		self.verts.source.paint(view_offset, painter)
 
 		painter.setBrush(BRUSH['target'])
-		self.draw_item_set(self.drawable.target, view_offset, painter)
+		self.verts.target.paint(view_offset, painter)
 
 		self.draw_legend((5, 5), painter)
 
@@ -136,17 +145,20 @@ class layer(layers.layer_interface):
 
 
 	def create_drawable_data(self):
-		self.drawable.clear()
+		self.verts.clear()
+		self.edges.clear()
 		self.process_path(0)
 		if self.path_idx > 0:
 			self.process_path(self.path_idx)
 
 		# stats
 		print '#path_layerc::reate_drawable_data()'
-		print 'primary:%d' % (len(self.drawable.primary), )
-		print 'common:%d' % (len(self.drawable.common), )
-		print 'diff:%d' % (len(self.drawable.diff), )
-		print 'alternative:%d' % (len(self.drawable.alternative), )
+		print 'primary:%d' % (len(self.verts.primary), )
+		print 'common:%d' % (len(self.verts.common), )
+		print 'diff:%d' % (len(self.verts.diff), )
+		print 'alternative:%d' % (len(self.verts.alternative), )
+		print 'edges:%d' % (len(self.edges), )
+		
 
 	def process_path(self, idx):
 		path = self.paths[idx]
@@ -190,7 +202,7 @@ class layer(layers.layer_interface):
 			else:
 				self.append_drawable_vertex(v, vtype)
 
-			self.drawable.edges.append(
+			self.edges.append(
 				drawable_edge(self.latlon2xy(self.ap2gp(u), self.zoom),
 					self.latlon2xy(self.ap2gp(v), self.zoom)))
 			
@@ -199,17 +211,17 @@ class layer(layers.layer_interface):
 	def append_drawable_vertex(self, v, vert_type):
 		vert = drawable_vertex(self.latlon2xy(self.ap2gp(v), self.zoom), 3)
 		if vert_type == VERTEX_TYPE.PRIMARY:
-			self.drawable.primary.append(vert)
+			self.verts.primary.append(vert)
 		elif vert_type == VERTEX_TYPE.COMMON:
-			self.drawable.common.append(vert)
+			self.verts.common.append(vert)
 		elif vert_type == VERTEX_TYPE.DIFF:
-			self.drawable.diff.append(vert)
+			self.verts.diff.append(vert)
 		elif vert_type == VERTEX_TYPE.ALTERNATIVE:
-			self.drawable.alternative.append(vert)
+			self.verts.alternative.append(vert)
 		elif vert_type == VERTEX_TYPE.SOURCE:
-			self.drawable.source.append(vert)
+			self.verts.source.append(vert)
 		elif vert_type == VERTEX_TYPE.TARGET:
-			self.drawable.target.append(vert)
+			self.verts.target.append(vert)
 		else:
 			print 'Unknown vertex type!'
 
@@ -451,6 +463,7 @@ class drawable_vertex:
 
 	def down_event(self):
 		self.down = not self.down
+		print 'I was clicked!'
 		
 	def paint(self, view_offset, painter):
 		x0,y0 = view_offset
@@ -469,29 +482,57 @@ class drawable_edge:
 			self.t[0]+x0, self.t[1]+y0)
 
 
-class drawable_group:
+
+class drawable_vertices:
 	def __init__(self):
 		self.init()
 
 	def init(self):
-		self.primary = []
-		self.common = []
-		self.diff = []
-		self.alternative = []
-		self.source = []
-		self.target = []
-		self.edges = []
+		self.primary = drawable_group()
+		self.common = drawable_group()
+		self.diff = drawable_group()
+		self.alternative = drawable_group()
+		self.source = drawable_group()
+		self.target = drawable_group()
+		self.group = [self.primary, self.common, self.diff, self.alternative,
+			self.source, self.target]
+
+	def down_event(self, pos):
+		for drawables in self.group:
+			if drawables.down_event(pos):
+				return
 
 	def clear(self):
 		self.init()
 
 
+class drawable_group:
+	def __init__(self):
+		self.group = []
+
+	# \param drawable must implment drawable_interface.
+	def append(self, drawable):
+		self.group.append(drawable)
+
+	def clear(self):
+		self.group = []
+
+	def paint(self, view_offset, painter):
+		for elem in self.group:
+			elem.paint(view_offset, painter)
+
+	def down_event(self, pos):
+		for elem in self.group:
+			if elem.contains(pos):
+				elem.down_event()
+				return True
+		return False
+
+	def __len__(self):
+		return len(self.group)
+
+
 class VERTEX_TYPE:
-	UNKNOWN = 0
-	PRIMARY = 1
-	COMMON = 2
-	DIFF = 3
-	ALTERNATIVE = 4
-	SOURCE = 5
-	TARGET = 6
+	UNKNOWN = -1
+	PRIMARY, COMMON, DIFF, ALTERNATIVE, SOURCE, TARGET = range(0, 6)
 
