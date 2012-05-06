@@ -3,7 +3,7 @@
 # \version 20120330
 import sys, math, time, os
 from PyQt4 import QtCore, QtGui, QtNetwork
-import path_layer, vof_layer
+import path_layer, vof_layer, transport_layer
 
 def main(args):
 	app = QtGui.QApplication(args)
@@ -234,8 +234,12 @@ class Form(QtGui.QMainWindow):
 				layer = vof_layer.layer(self, self.zoom)
 				layer.create(fname)
 				self.add_layer(layer)
-			else:
+			elif is_path_file(str(fname)):
 				layer = path_layer.layer(self)
+				layer.create(fname)
+				self.add_layer(layer)
+			else:
+				layer = transport_layer.layer(self)
 				layer.create(fname)
 				self.add_layer(layer)
 		for layer in self.layers:
@@ -285,6 +289,9 @@ class Form(QtGui.QMainWindow):
 
 def is_vof_file(fname):
 	return os.path.splitext(fname)[1] == '.vof'
+
+def is_path_file(fname):
+	return os.path.splitext(fname)[1] == '.out'
 
 def is_intersection_empty(r1, r2):
 	a1,b1 = r1;	a2,b2 = r2
