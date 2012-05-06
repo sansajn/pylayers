@@ -36,7 +36,13 @@ class layer(layers.layer_interface):
 			QtGui.QColor(color[0], color[1], color[2])))
 		view_rect = self.view_geo_rect(view_offset, zoom)
 		ignored = 0
+		
 		for e in edges:
+			
+			# debug
+			a = view_rect.contains(e.source.gpos)
+			b = view_rect.contains(e.target.gpos)
+		
 			if view_rect.contains(e.source.gpos)\
 				or	view_rect.contains(e.target.gpos):
 				self.draw_edge(view_offset, zoom, e.source.gpos,
@@ -49,7 +55,7 @@ class layer(layers.layer_interface):
 	def draw_edge(self, view_offset, zoom, f_latlon, t_latlon, painter):
 		x0,y0 = view_offset
 		x_f, y_f = mercator.gpos2xy(f_latlon, zoom)
-		x_t, y_t = mercator.qpos2xy(t_latlon, zoom)		
+		x_t, y_t = mercator.gpos2xy(t_latlon, zoom)		
 		painter.drawLine(x_f+x0, y_f+y0, x_t+x0, y_t+y0)
 	
 	def draw_white_verts(self, verts, view_offset, zoom, painter):
