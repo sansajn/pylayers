@@ -26,9 +26,17 @@ class layer(layers.layer_interface):
 		self.draw_white_verts(self.white_verts, view_offset, zoom, painter)
 		self.draw_grey_verts(self.grey_verts, view_offset, zoom, painter)
 
+	# public
 	def key_press_event(self, e):
 		if e.key() == QtCore.Qt.Key_V:
 			self.show_verts = not self.show_verts
+
+	# public
+	def zoom_event(self, zoom):
+		layers.layer_interface.zoom_event(self, zoom)
+		self.calculate_vertices_xy(self.white_verts)
+		self.calculate_vertices_xy(self.grey_verts)
+		
 
 	def draw_edges(self, edges, view_offset, zoom, color, painter):
 		brush = painter.brush()
@@ -38,24 +46,19 @@ class layer(layers.layer_interface):
 		ignored = 0
 		
 		for e in edges:
-			
-			# debug
-			a = view_rect.contains(e.source.gpos)
-			b = view_rect.contains(e.target.gpos)
-		
 			if view_rect.contains(e.source.gpos)\
 				or	view_rect.contains(e.target.gpos):
 				self.draw_edge(view_offset, zoom, e.source.gpos,
 					e.target.gpos, painter)
 			else:
 				ignored += 1
-		print 'ignored %d/%d edges' % (ignored, len(edges))
+		print 'ignored %g edges' % (ignored/len(edges), )
 		painter.setBrush(brush)
 
 	def draw_edge(self, view_offset, zoom, f_latlon, t_latlon, painter):
 		x0,y0 = view_offset
-		x_f, y_f = mercator.gpos2xy(f_latlon, zoom)
-		x_t, y_t = mercator.gpos2xy(t_latlon, zoom)		
+		x_f, y_f = mercator.gps2xy(f_latlon, zoom)
+		x_t, y_t = mercator.gps2xy(t_latlon, zoom)		
 		painter.drawLine(x_f+x0, y_f+y0, x_t+x0, y_t+y0)
 	
 	def draw_white_verts(self, verts, view_offset, zoom, painter):
@@ -121,12 +124,12 @@ class layer(layers.layer_interface):
 
 		grey_verts = {vertex(gpos)
 			for gpos in self.create_unique_gpos_set(grey)}
-		self.calculate_vertices_xy(white_verts)
+		self.grey_verts = grey_verts.difference(white_verts)	
+		self.calculate_vertices_xy(grey_verts)
 
 		self.white = {edge(vertex(r.source), vertex(r.target)) for r in white}
 		self.grey = {edge(vertex(r.source), vertex(r.target)) for r in grey}
 		self.grey = self.grey.difference(self.white)
-		self.grey_verts = grey_verts.difference(white_verts)	
 
 
 	def calculate_vertices_xy(self, verts):
@@ -143,14 +146,14 @@ class layer(layers.layer_interface):
 		x0,y0 = view_offset
 		xa,ya = (abs(x0), abs(y0)+h)
 		a_gpos = mercator.xy2gps((xa, ya), zoom)
-		b_gpos = mercator.xy2gps((xa+w, ya+h), zoom)
+		b_gpos = mercator.xy2gps((xa+w, ya-h), zoom)
 		return latlon_rect(a_gpos, b_gpos)
 
 	def process_path_recs(self, path):
-		return {gpspos(p[1], p[0]) for p in path}
+		return {vertex(gpspos(p[1], p[0])) for p in path}
 
 	def process_fromto(self, fromto):
-		return [gpspos(p[1], p[0]) for p in fromto]
+		return [vertex(gpspos(p[1], p[0])) for p in fromto]
 
 	def process_graph_recs(self, graph):
 		recs = [graph_record(gr) for gr in graph]
