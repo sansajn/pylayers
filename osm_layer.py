@@ -33,6 +33,7 @@ class layer(layers.layer_interface):
 	def zoom_event(self, zoom):
 		t = time.clock()
 		layers.layer_interface.zoom_event(self, zoom)
+		self.clear_tile_ram_cache()
 		self.change_map()
 		dt = time.clock() - t
 		self.debug('  #osm_layer.zoom_event(): %f s' % (dt, ))
@@ -50,6 +51,10 @@ class layer(layers.layer_interface):
 
 	def change_map(self):
 		self.debug('#osm_layer.change_map()')
+
+		trange = self.visible_tiles()
+		print trange
+
 		tiles = self.tiles_not_in_cache(self.visible_tiles())
 		for t in tiles:
 			self.tile_request(t[1], t[0], self.zoom)
@@ -184,7 +189,7 @@ class layer(layers.layer_interface):
 	def construct_tile_url(self, x, y, z):		
 		return 'http://tile.openstreetmap.org/%d/%d/%d.png' % (z, x, y)
 
-	def clear_image_cache(self):
+	def clear_tile_ram_cache(self):
 		self.tile_ram_cache = {}
 
 	def debug(self, msg):

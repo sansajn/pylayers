@@ -78,6 +78,8 @@ class Form(QtGui.QMainWindow):
 		qp = QtGui.QPainter()
 		qp.begin(self)
 
+		w,h = self.window_size()
+		qp.drawRect(0, 0, w, h)
 		for layer in self.layers:
 			layer.paint(qp)
 
