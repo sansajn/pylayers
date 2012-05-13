@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+# \author Adam Hlavatovič
 from PyQt4 import QtCore, QtGui
 import gps, layers
 
@@ -9,10 +10,7 @@ class layer(layers.layer_interface):
 		self.stops = []
 		self.drawable = []
 
-	#!layer_interface
-	#@{
-
-	# public
+	#@{ layer_interface implementation
 	def create(self, transport_pack):
 		fstops = open(transport_pack, 'r')
 		field_map = read_header(fstops)
@@ -21,9 +19,8 @@ class layer(layers.layer_interface):
 			field_map['stop_lon'])
 		self.stops = stops
 		
-
-	# public
-	def paint(self, view_offset, painter):
+	def paint(self, painter):
+		view_offset = self.widget.view_offset
 		old_pen = painter.pen()
 		old_brush = painter.brush()
 		painter.setPen(QtGui.QPen(QtCore.Qt.black))
@@ -33,15 +30,12 @@ class layer(layers.layer_interface):
 		painter.setPen(old_pen)
 		painter.setBrush(old_brush)
 
-	# public
 	def zoom_event(self, zoom):
 		layers.layer_interface.zoom_event(self, zoom)
 		self.prepare_drawable_data()
 
-	# public
 	def mouse_press_event(self, event):
 		pass
-
 	#@}
 
 	def prepare_drawable_data(self):

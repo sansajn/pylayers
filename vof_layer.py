@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 # Implementuje vrstvu umožnujúcu zobraziť vof súbor.
 # \author Adam Hlavatovič
-# \version 20120403
 import math
 from PyQt4 import QtCore, QtGui, QtNetwork
 import layers, vof_dump
@@ -19,8 +18,9 @@ class layer(layers.layer_interface):
 		self.process_dump(reader.graph(), reader.path(), reader.fromto())
 
 	# public
-	def paint(self, view_offset, painter):
+	def paint(self, painter):
 		zoom = self.zoom
+		view_offset = self.widget.view_offset
 		self.draw_edges(self.white, view_offset, zoom, (0, 0, 0), painter)
 		self.draw_edges(self.grey, view_offset, zoom, (0, 0, 0), painter)
 		self.draw_white_verts(self.white_verts, view_offset, zoom, painter)
@@ -44,7 +44,6 @@ class layer(layers.layer_interface):
 			QtGui.QColor(color[0], color[1], color[2])))
 		view_rect = self.view_geo_rect(view_offset, zoom)
 		ignored = 0
-		
 		for e in edges:
 			if view_rect.contains(e.source.gpos)\
 				or	view_rect.contains(e.target.gpos):
@@ -52,7 +51,7 @@ class layer(layers.layer_interface):
 					e.target.gpos, painter)
 			else:
 				ignored += 1
-		print 'ignored %g edges' % (ignored/len(edges), )
+		print 'ignored %g%% edges' % (ignored/float(len(edges))*100, )
 		painter.setBrush(brush)
 
 	def draw_edge(self, view_offset, zoom, f_latlon, t_latlon, painter):
@@ -81,7 +80,7 @@ class layer(layers.layer_interface):
 				self.draw_vertex(view_offset, zoom, v, painter)
 			else:
 				ignored += 1
-		print 'ignored %g%% white vertices' % (ignored/len(verts)*100, )
+		print 'ignored %g%% white vertices' % (ignored/float(len(verts))*100, )
 		painter.setBrush(brush)
 
 	def draw_grey_verts(self, verts, view_offset, zoom, painter):
@@ -100,7 +99,7 @@ class layer(layers.layer_interface):
 				self.draw_vertex(view_offset, zoom, v, painter)
 			else:
 				ignored += 1
-		print 'ignored %g%% grey vertices' % (ignored/len(verts)*100, )
+		print 'ignored %g%% grey vertices' % (ignored/float(len(verts))*100, )
 		painter.setBrush(brush)
 		
 	def draw_vertex(self, view_offset, zoom, v, painter):

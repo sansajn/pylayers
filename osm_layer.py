@@ -50,11 +50,7 @@ class layer(layers.layer_interface):
 	#@}
 
 	def change_map(self):
-		self.debug('#osm_layer.change_map()')
-
-		trange = self.visible_tiles()
-		print trange
-
+		self.debug('\n#osm_layer.change_map()')
 		tiles = self.tiles_not_in_cache(self.visible_tiles())
 		for t in tiles:
 			self.tile_request(t[1], t[0], self.zoom)

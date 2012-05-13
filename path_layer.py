@@ -78,9 +78,9 @@ class layer(layers.layer_interface):
 		self.dump_stats_thread.start()
 
 	# public
-	def paint(self, view_offset, painter):
-		self.view_offset = view_offset
-		self.draw_scene(view_offset, painter)
+	def paint(self, painter):
+		self.view_offset = self.widget.view_offset
+		self.draw_scene(self.view_offset, painter)
 
 	# public
 	def key_press_event(self, e):

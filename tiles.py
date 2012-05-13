@@ -73,7 +73,7 @@ class Form(QtGui.QMainWindow):
 
 	#@{ Qt events
 	def paintEvent(self, e):
-		print '#paintEvent()'
+		print '\n#paintEvent()'
 		t = time.clock()
 		qp = QtGui.QPainter()
 		qp.begin(self)
