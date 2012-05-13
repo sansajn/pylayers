@@ -1,31 +1,44 @@
 # -*- coding: utf-8 -*-
 # Open Street Map layer
 # \author Adam Hlavatovič
-import os
+import os, time, math
 from PyQt4 import QtCore, QtGui, QtNetwork
 import layers
 
-class osm_layer(layers.layer_interface):
+class layer(layers.layer_interface):
 	def __init__(self, widget):
 		layers.layer_interface.__init__(self, widget)
+		self.debug_prints = True
+		self.requested_tiles = set()
 		self.tile_ram_cache = {}
+		
+		self.tile_disk_cache = QtNetwork.QNetworkDiskCache()
 		self.tile_disk_cache.setCacheDirectory(
 			os.path.join(temp_directory(), 'tiles'))
 		self.tile_disk_cache.setMaximumCacheSize(500*2**20)
+
 		self.network = QtNetwork.QNetworkAccessManager()
 		self.network.setCache(self.tile_disk_cache)
-		self.connect(self.network, QtCore.SIGAL('finished(QNetworkReply *)',
-			self.tile_reply_event))
+		
+		widget.connect(self.network, QtCore.SIGNAL('finished(QNetworkReply *)'),
+			self.tile_reply_event)
 
 	#@{ layer_interface implementation
-	def paint(self, view_offset, painter):
-		pass
-
-	def key_press_event(self, event):
-		pass
+	def paint(self, painter):
+		t = time.clock()
+		self.draw_map(painter)
+		dt = time.clock() - t
+		self.debug('  #osm_layer.paint(): %f s' % (dt, ))
 
 	def zoom_event(self, zoom):
+		t = time.clock()
 		layers.layer_interface.zoom_event(self, zoom)
+		self.change_map()
+		dt = time.clock() - t
+		self.debug('  #osm_layer.zoom_event(): %f s' % (dt, ))
+
+	def pan_event(self):
+		self.change_map()
 
 	# \param event QMouseEvent
 	def mouse_press_event(self, event):
@@ -36,14 +49,14 @@ class osm_layer(layers.layer_interface):
 	#@}
 
 	def change_map(self):
-		self.debug('#osm_layer::change_map()')
+		self.debug('#osm_layer.change_map()')
 		tiles = self.tiles_not_in_cache(self.visible_tiles())
 		for t in tiles:
 			self.tile_request(t[1], t[0], self.zoom)
 		self.standard_update()
 
 	def standard_update(self):
-		self.update()
+		self.widget.update()
 
 	def draw_map(self, painter):
 		r'Nakreslí mapu s dlaždíc v pamäti, alebo na disku.'
@@ -59,7 +72,7 @@ class osm_layer(layers.layer_interface):
 					self.draw_tile(tile, j, i, painter)
 
 	def draw_tile(self, tile, x, y, painter):
-		x0,y0 = self.view_offset
+		x0,y0 = self.widget.view_offset
 		painter.drawImage(QtCore.QPoint(x*256+x0, y*256+y0), tile)
 
 	def load_tile_from_image_cache(self, x, y):
@@ -76,7 +89,7 @@ class osm_layer(layers.layer_interface):
 			return None
 
 	def insert_tile_to_ram_cache(self, tile, x, y):
-		if y in self.image_cache:
+		if y in self.tile_ram_cache:
 			self.tile_ram_cache[y][x] = tile
 		else:
 			self.tile_ram_cache[y] = {x:tile}
@@ -104,8 +117,8 @@ class osm_layer(layers.layer_interface):
 		return self.tile_disk_cache.data(url)
 
 	def visible_tiles(self):
-		w,h = self.window_size()
-		x0,y0 = self.view_offset
+		w,h = self.widget.window_size()
+		x0,y0 = self.widget.view_offset
 		N = M = 2**self.zoom
 		w_t = h_t = 256
 		rc_view = ((0, h), (w, 0)) 
@@ -151,7 +164,7 @@ class osm_layer(layers.layer_interface):
 
 	def tile_reply_event(self, reply):
 		if reply.error():
-			print '#osm_layer::tile_reply_event(): error=%d' % (reply.error(),)
+			print '#osm_layer.tile_reply_event(): error=%d' % (reply.error(),)
 			return
 
 		tile_id = reply.request().attribute(
@@ -162,7 +175,7 @@ class osm_layer(layers.layer_interface):
 			QtNetwork.QNetworkRequest.SourceIsFromCacheAttribute).toBool()
 		if from_cache:
 			source = 'disk cache'
-		self.debug('#osm_layer::tile_reply_event()')
+		self.debug('#osm_layer.tile_reply_event()')
 		self.debug('  tile %s received from %s' % (tile_id, source))
 
 		self.change_map()
@@ -172,17 +185,21 @@ class osm_layer(layers.layer_interface):
 		return 'http://tile.openstreetmap.org/%d/%d/%d.png' % (z, x, y)
 
 	def clear_image_cache(self):
-		self.image_cache = {}
+		self.tile_ram_cache = {}
 
 	def debug(self, msg):
 		if self.debug_prints:
 			print msg
 
 
-
-
 def is_intersection_empty(r1, r2):
 	a1,b1 = r1;	a2,b2 = r2
 	return not ( (b2[0] > a1[0]) and (a2[0] < b1[0]) and (a2[1] > b1[1]) and 
 		(b2[1] < a1[1]) )
+
+def temp_directory():
+	if os.name == 'nt':
+		return os.environ['TEMP']
+	else:
+		return '/tmp'
 

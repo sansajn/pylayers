@@ -20,7 +20,9 @@ class Form(QtGui.QMainWindow):
 		self.layers = []
 
 		self.resize(800, 600)
-		
+
+		self.add_layer(osm_layer.layer(self))
+
 	def add_layer(self, layer):
 		self.layers.append(layer)
 		layer.zoom_event(self.zoom)
@@ -38,7 +40,7 @@ class Form(QtGui.QMainWindow):
 		w,h = self.window_size()
 		self.view_offset = (-center[0]+w/2, -center[1]+h/2)
 		self.zoom = new_zoom
-		print '\n#zoom_event(): zoom event, zoom:%d' % (self.zoom, )
+		print '\n#zoom_event(): zoom:%d' % (self.zoom, )
 		
 		self.set_window_title()
 
@@ -55,9 +57,14 @@ class Form(QtGui.QMainWindow):
 		w,h = self.window_size()
 		return (abs(self.view_offset[0]) + w/2, abs(self.view_offset[1]) + h/2)
 
+	def double_distance(self, x):
+		if x < 0:
+			return -(2*x)
+		else:
+			return 2*x
+
 	def set_window_title(self):
-		self.setWindowTitle('PySlippyMap client (zoom:%d)' % (
-			self.zoom, ))
+		self.setWindowTitle('PyLayers (zoom:%d)' % (self.zoom, ))
 	
 	def window_size(self):
 		r = self.geometry()
@@ -66,16 +73,17 @@ class Form(QtGui.QMainWindow):
 
 	#@{ Qt events
 	def paintEvent(self, e):
+		print '#paintEvent()'
 		t = time.clock()
 		qp = QtGui.QPainter()
 		qp.begin(self)
 
 		for layer in self.layers:
-			layer.paint(self.view_offset, qp)
+			layer.paint(qp)
 
 		qp.end()
 		dt = time.clock() - t
-		print '#paintEvent(): %f s' % (dt, )
+		print '--> total: %f s' % (dt, )
 
 	def keyPressEvent(self, e):
 		if e.key() == QtCore.Qt.Key_O:
@@ -123,17 +131,6 @@ def is_vof_file(fname):
 
 def is_path_file(fname):
 	return os.path.splitext(fname)[1] == '.out'
-
-def is_intersection_empty(r1, r2):
-	a1,b1 = r1;	a2,b2 = r2
-	return not ( (b2[0] > a1[0]) and (a2[0] < b1[0]) and (a2[1] > b1[1]) and 
-		(b2[1] < a1[1]) )
-
-def temp_directory():
-	if os.name == 'nt':
-		return os.environ['TEMP']
-	else:
-		return '/tmp'
 
 def open_file_dialog(parent):
 	return QtGui.QFileDialog.getOpenFileName(parent, 'Open dump file ...')

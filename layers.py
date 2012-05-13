@@ -12,7 +12,7 @@ class layer_interface:
 	def create(self, uri):
 		pass
 
-	def paint(self, view_offset, painter):
+	def paint(self, painter):
 		pass
 
 	def key_press_event(self, event):
