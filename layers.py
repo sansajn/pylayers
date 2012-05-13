@@ -21,6 +21,9 @@ class layer_interface:
 	def zoom_event(self, zoom):
 		self.zoom = zoom
 
+	def pan_event(self):
+		pass
+
 	# \param event QMouseEvent
 	def mouse_press_event(self, event):
 		pass
