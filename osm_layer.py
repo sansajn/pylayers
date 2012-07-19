@@ -9,6 +9,7 @@ class layer(layers.layer_interface):
 	def __init__(self, widget):
 		layers.layer_interface.__init__(self, widget)
 		self.debug_prints = True
+		self.hide = False
 		self.requested_tiles = set()
 		self.tile_ram_cache = {}
 		
@@ -25,6 +26,8 @@ class layer(layers.layer_interface):
 
 	#@{ layer_interface implementation
 	def paint(self, painter):
+		if self.hide:
+			return
 		t = time.clock()
 		self.draw_map(painter)
 		dt = time.clock() - t
@@ -47,6 +50,10 @@ class layer(layers.layer_interface):
 
 	def resize_event(self, event):
 		self.change_map()
+		
+	def key_press_event(self, event):
+		if event.key() == QtCore.Qt.Key_M:
+			self.hide = not self.hide
 	#@}
 
 	def change_map(self):

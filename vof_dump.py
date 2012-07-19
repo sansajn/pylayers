@@ -35,7 +35,8 @@ class reader:
 
 	# public
 	def graph(self):
-		r'Vráti zoznam hrán s grafovej sekcie.'
+		r'''Vráti zoznam hrán s grafovej sekcie (pre definíciu hrany pozri
+		_parse_graph_line()).'''
 		return self._graph
 
 	# public

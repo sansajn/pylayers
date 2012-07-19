@@ -2,7 +2,7 @@
 # \author Adam Hlavatovič
 import sys, math, time, os
 from PyQt4 import QtCore, QtGui, QtNetwork
-import path_layer, vof_layer, transport_layer, osm_layer
+import path_layer, vof_layer, transport_layer, osm_layer, edge_layer
 
 def main(args):
 	app = QtGui.QApplication(args)
@@ -70,7 +70,6 @@ class Form(QtGui.QMainWindow):
 		r = self.geometry()
 		return (r.width(), r.height())
 
-
 	#@{ Qt events
 	def paintEvent(self, e):
 		print '\n#paintEvent()'
@@ -98,6 +97,10 @@ class Form(QtGui.QMainWindow):
 				layer = path_layer.layer(self)
 				layer.create(fname)
 				self.add_layer(layer)
+			elif is_edges_file(str(fname)):
+				layer = edge_layer.layer(self)
+				layer.create(str(fname))
+				self.add_layer(layer)				
 			else:
 				layer = transport_layer.layer(self)
 				layer.create(fname)
@@ -124,7 +127,7 @@ class Form(QtGui.QMainWindow):
 
 	def resizeEvent(self, e):
 		self.update()
-	#@}
+	#@}  Qt events
 
 
 
@@ -133,6 +136,9 @@ def is_vof_file(fname):
 
 def is_path_file(fname):
 	return os.path.splitext(fname)[1] == '.out'
+
+def is_edges_file(fname):
+	return os.path.splitext(fname)[1] == '.edges'
 
 def open_file_dialog(parent):
 	return QtGui.QFileDialog.getOpenFileName(parent, 'Open dump file ...')
