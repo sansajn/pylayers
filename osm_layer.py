@@ -8,7 +8,6 @@ import layers
 class layer(layers.layer_interface):
 	def __init__(self, widget):
 		layers.layer_interface.__init__(self, widget)
-		self.debug_prints = True
 		self.hide = False
 		self.requested_tiles = set()
 		self.tile_ram_cache = {}
@@ -194,10 +193,6 @@ class layer(layers.layer_interface):
 
 	def clear_tile_ram_cache(self):
 		self.tile_ram_cache = {}
-
-	def debug(self, msg):
-		if self.debug_prints:
-			print msg
 
 
 def is_intersection_empty(r1, r2):

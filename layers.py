@@ -7,7 +7,8 @@
 class layer_interface:
 	def __init__(self, widget):
 		self.zoom = None
-		self.widget = widget		
+		self.widget = widget
+		self.debug_prints = True
 
 	def create(self, uri):
 		pass
@@ -28,3 +29,7 @@ class layer_interface:
 	# \param event QMouseEvent
 	def mouse_press_event(self, event):
 		pass
+	
+	def debug(self, msg):
+		if self.debug_prints:
+			print msg
