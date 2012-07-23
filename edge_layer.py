@@ -1,13 +1,14 @@
 # -*- coding: utf-8 -*-
 # \author Adam Hlavatovič
+import time
 from PyQt4 import QtCore, QtGui
-import gps, layers
+import gps, layers, qtree
 
 
 class layer(layers.layer_interface):
 	def __init__(self, widget):
 		layers.layer_interface.__init__(self, widget)
-		self.forward = []
+		self.forward = ([], None)  # edges, rectange
 		self.backward = []
 		self.avoids = []
 		self.path = []
@@ -15,6 +16,7 @@ class layer(layers.layer_interface):
 		self.drawable_bwd = []
 		self.drawable_avoids = []
 		self.drawable_path = []
+		self.qtree_fwd = None
 		
 		pen = QtGui.QPen()
 		pen.setColor(QtCore.Qt.red)
@@ -37,13 +39,8 @@ class layer(layers.layer_interface):
 		avoids = loc['avoids']
 		path = loc['path']
 
-		fwd_common = 0  # stats
-		for e in forward:
-			if e not in path:
-				self.forward.append(e)
-			else:
-				fwd_common += 1
-		
+		self.forward = process_raw_edges([e for e in forward if e not in path])
+
 		bwd_common = 0  # stats
 		for e in backward:
 			if e not in path:
@@ -61,15 +58,25 @@ class layer(layers.layer_interface):
 		self.avoids = avoids		 
 		
 	def paint(self, painter):
+		t = time.clock()
+		
 		view_offset = self.widget.view_offset
 		self.paint_forward(view_offset, painter)
 		self.paint_backward(view_offset, painter)
 		self.paint_avoids(view_offset, painter)
 		self.paint_path(view_offset, painter)
+						
+		dt = time.clock() - t
+		self.debug('  #edge_layer.paint(): %f s' % (dt, ))
 
 	def zoom_event(self, zoom):
+		t = time.clock()
+
 		layers.layer_interface.zoom_event(self, zoom)
 		self.prepare_drawable_data()
+		
+		dt = time.clock() - t
+		self.debug('  #edge_layer.zoom_event(): %f s' % (dt, ))
 
 	def mouse_press_event(self, event):
 		pass
@@ -112,11 +119,12 @@ class layer(layers.layer_interface):
 		painter.setBrush(old_brush)
 
 	def prepare_drawable_data(self):	
-		# edges	
-		self.drawable_fwd = to_drawable_edges(self.forward, self.zoom)
+		# edges
+		self.drawable_fwd = to_drawable_edges2(self.forward[0], self.zoom)
 		self.drawable_bwd = to_drawable_edges(self.backward, self.zoom)
 		self.drawable_avoids = to_drawable_edges(self.avoids, self.zoom)
 		self.drawable_path = to_drawable_edges(self.path, self.zoom)
+		
 		
 		# vertices
 		#verts = []
@@ -125,7 +133,14 @@ class layer(layers.layer_interface):
 		#	verts.append((e.p2.x(), e.p2.y()))	
 		#verts_drawable = [vertex(v) for v in verts]		
 		#self.drawable.extend(verts_drawable)
-
+			
+	def fill_qtree_fwd(self, data):		
+		gpsr = data[1]
+		edges = data[0]
+		self.qtree_fwd = qtree.quad_tree(gpsr)
+		for e in edges:
+			self.qtree_fwd.append(e.p1, e)
+			
 
 def to_drawable_edges(edges, zoom):
 	forward_drawable = []
@@ -140,6 +155,38 @@ def to_drawable_edges(edges, zoom):
 		forward_drawable.append(edge(p1, p2))
 	return forward_drawable
 
+def to_drawable_edges2(edges, zoom):
+	drawable_edges = []
+	for e in edges:
+		s = e[0]
+		t = e[1]
+		p1 = gps.mercator.gps2xy(s, zoom)
+		p2 = gps.mercator.gps2xy(t, zoom)
+		drawable_edges.append(edge(p1, p2))
+	return drawable_edges
+
+
+def to_xyrect(gps_rect, zoom):
+	pass
+
+def process_raw_edges(edges):
+	d = []
+	r = QtCore.QRectF(0, 0, 0, 0)
+	for e in edges:
+		s = e[0]
+		t = e[1]
+		s_gps = gps.gpspos(s[0]/float(1e5), s[1]/float(1e5))
+		t_gps = gps.gpspos(t[0]/float(1e5), t[1]/float(1e5))
+		if s_gps.is_valid() and t_gps.is_valid():
+			d.append((s_gps, t_gps))
+			r.unite(to_rect(s_gps, t_gps))
+	return (d, r)
+		
+def to_rect(s_gps, t_gps):
+	x0 = (min(s_gps.lon, t_gps.lon),	min(s_gps.lat, t_gps.lat))
+	return QtCore.QRectF(x0[0], x0[1], abs(t_gps.lon - s_gps.lon), 
+		abs(t_gps.lat - s_gps.lat))
+	
 
 class position:
 	def __init__(self, x, y):
