@@ -4,6 +4,7 @@ from PyQt4 import QtCore
 
 class quad_tree:
 	def __init__(self, area):
+		r'\param area Musi platit vyraz area.x(), area.y(), area.width() a area.heigth().'
 		self.size = 0
 		self.root = quad_node(area)
 
@@ -30,7 +31,7 @@ class quad_node:
 				if ch.contains(xypos):
 					ch.insert(xypos, value)
 					return
-			raise Exception('error: lost data (%g, %g)!' % xypos)			
+			raise Exception('error: lost data (%g, %g)!' % xypos)
 		else:
 			self.elems.append((xypos, value))
 

@@ -17,6 +17,15 @@ class gpspos:
 	def __hash__(self):
 		a=int(self.lon*1e5); b=int(self.lat*1e5)
 		return b<<32|a
+	
+	def __getitem__(self, key):
+		if key == 0:
+			return self.lat
+		elif key == 1:
+			return self.lon
+		else:
+			raise Exception('index overflow only 0 or 1 supported')
+			
 
 
 class mercator:

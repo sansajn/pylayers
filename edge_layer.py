@@ -40,6 +40,7 @@ class layer(layers.layer_interface):
 		path = loc['path']
 
 		self.forward = process_raw_edges([e for e in forward if e not in path])
+		self.fill_qtree_fwd(self.forward)
 
 		bwd_common = 0  # stats
 		for e in backward:
@@ -61,7 +62,7 @@ class layer(layers.layer_interface):
 		t = time.clock()
 		
 		view_offset = self.widget.view_offset
-		self.paint_forward(view_offset, painter)
+		self.paint_forward2(view_offset, painter)
 		self.paint_backward(view_offset, painter)
 		self.paint_avoids(view_offset, painter)
 		self.paint_path(view_offset, painter)
@@ -88,6 +89,19 @@ class layer(layers.layer_interface):
 		painter.setPen(QtCore.Qt.black)
 		for d in self.drawable_fwd:
 			d.paint(view_offset, painter)
+		painter.setPen(old_pen)
+		painter.setBrush(old_brush)
+		
+	def paint_forward2(self, view_offset, painter):
+		old_pen = painter.pen()
+		old_brush = painter.brush()
+		painter.setPen(QtCore.Qt.black)
+
+		visible_edges_idxs = self.qtree_fwd.lookup(self.forward[1])
+		for idx in visible_edges_idxs:
+			e = self.drawable_fwd[idx]
+			e.paint(view_offset, painter)
+			
 		painter.setPen(old_pen)
 		painter.setBrush(old_brush)
 				
@@ -135,11 +149,11 @@ class layer(layers.layer_interface):
 		#self.drawable.extend(verts_drawable)
 			
 	def fill_qtree_fwd(self, data):		
-		gpsr = data[1]
 		edges = data[0]
-		self.qtree_fwd = qtree.quad_tree(gpsr)
-		for e in edges:
-			self.qtree_fwd.append(e.p1, e)
+		gps_rect = data[1]
+		self.qtree_fwd = qtree.quad_tree(gps_rect)
+		for key, e in enumerate(edges):
+			self.qtree_fwd.insert(e[0], key)
 			
 
 def to_drawable_edges(edges, zoom):
@@ -166,9 +180,6 @@ def to_drawable_edges2(edges, zoom):
 	return drawable_edges
 
 
-def to_xyrect(gps_rect, zoom):
-	pass
-
 def process_raw_edges(edges):
 	d = []
 	r = QtCore.QRectF(0, 0, 0, 0)
@@ -179,13 +190,14 @@ def process_raw_edges(edges):
 		t_gps = gps.gpspos(t[0]/float(1e5), t[1]/float(1e5))
 		if s_gps.is_valid() and t_gps.is_valid():
 			d.append((s_gps, t_gps))
-			r.unite(to_rect(s_gps, t_gps))
+			r = r.unite(to_rect(s_gps, t_gps))
 	return (d, r)
 		
 def to_rect(s_gps, t_gps):
-	x0 = (min(s_gps.lon, t_gps.lon),	min(s_gps.lat, t_gps.lat))
-	return QtCore.QRectF(x0[0], x0[1], abs(t_gps.lon - s_gps.lon), 
-		abs(t_gps.lat - s_gps.lat))
+	x0 = (min(s_gps.lat, t_gps.lat), min(s_gps.lon, t_gps.lon))
+	r = QtCore.QRectF(x0[0], x0[1], abs(t_gps.lat - s_gps.lat), 
+		abs(t_gps.lon - s_gps.lon))
+	return r
 	
 
 class position:
