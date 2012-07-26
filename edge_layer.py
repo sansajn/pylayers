@@ -9,14 +9,17 @@ class layer(layers.layer_interface):
 	def __init__(self, widget):
 		layers.layer_interface.__init__(self, widget)
 		self.forward = ([], None)  # edges, rectange
-		self.backward = []
-		self.avoids = []
-		self.path = []
+		self.backward = ([], None)
+		self.avoids = ([], None)
+		self.path = ([], None)
 		self.drawable_fwd = []
 		self.drawable_bwd = []
 		self.drawable_avoids = []
 		self.drawable_path = []
 		self.qtree_fwd = None
+		self.qtree_bwd = None
+		self.qtree_avoids = None
+		self.qtree_path = None
 		
 		pen = QtGui.QPen()
 		pen.setColor(QtCore.Qt.red)
@@ -40,32 +43,40 @@ class layer(layers.layer_interface):
 		path = loc['path']
 
 		self.forward = process_raw_edges([e for e in forward if e not in path])
-		self.fill_qtree_fwd(self.forward)
+		self.qtree_fwd = self.create_edge_qtree(self.forward)
 
-		bwd_common = 0  # stats
-		for e in backward:
-			if e not in path:
-				self.backward.append(e)
-			else:
-				bwd_common += 1
+		self.backward = process_raw_edges([e for e in backward if e not in path])
+		self.qtree_bwd = self.create_edge_qtree(self.backward)
 		
-		path_common = 0  # stats
-		for e in path:
-			if e not in avoids:
-				self.path.append(e)
-			else:
-				path_common += 1	
+		self.path = process_raw_edges([e for e in path if e not in avoids])
+		self.qtree_path = self.create_edge_qtree(self.path)
 		
-		self.avoids = avoids		 
+		self.avoids = process_raw_edges([e for e in avoids])
+		self.qtree_avoids = self.create_edge_qtree(self.avoids)
 		
 	def paint(self, painter):
 		t = time.clock()
 		
+		old_pen = painter.pen()
+		
+		painter.setPen(QtCore.Qt.black)
 		view_offset = self.widget.view_offset
-		self.paint_forward2(view_offset, painter)
-		self.paint_backward(view_offset, painter)
-		self.paint_avoids(view_offset, painter)
-		self.paint_path(view_offset, painter)
+		self.paint_edges(self.drawable_fwd, self.qtree_fwd, view_offset, painter, 
+			'forward')
+		
+		painter.setPen(QtCore.Qt.gray)
+		self.paint_edges(self.drawable_bwd, self.qtree_bwd, view_offset, painter, 
+			'backward')
+		
+		painter.setPen(self.pen_avoids)
+		self.paint_edges(self.drawable_avoids, self.qtree_avoids, view_offset, 
+			painter, 'avoids')
+		
+		painter.setPen(self.pen_path)
+		self.paint_edges(self.drawable_path, self.qtree_path, view_offset,
+			painter, 'path')
+		
+		painter.setPen(old_pen)
 						
 		dt = time.clock() - t
 		self.debug('  #edge_layer.paint(): %f s' % (dt, ))
@@ -83,62 +94,22 @@ class layer(layers.layer_interface):
 		pass
 	#@}
 	
-	def paint_forward(self, view_offset, painter):
-		old_pen = painter.pen()
-		old_brush = painter.brush()
-		painter.setPen(QtCore.Qt.black)
-		for d in self.drawable_fwd:
-			d.paint(view_offset, painter)
-		painter.setPen(old_pen)
-		painter.setBrush(old_brush)
-		
-	def paint_forward2(self, view_offset, painter):
-		old_pen = painter.pen()
-		old_brush = painter.brush()
-		painter.setPen(QtCore.Qt.black)
-
-		visible_edges_idxs = self.qtree_fwd.lookup(self.forward[1])
+	def paint_edges(self, drawable, edge_qtree, view_offset, painter, 
+		string_id = ''):		
+		visible_edges_idxs = edge_qtree.lookup(
+			self.view_geo_rect(view_offset, self.zoom))
 		for idx in visible_edges_idxs:
-			e = self.drawable_fwd[idx]
+			e = drawable[idx]
 			e.paint(view_offset, painter)
-			
-		painter.setPen(old_pen)
-		painter.setBrush(old_brush)
-				
-	def paint_backward(self, view_offset, painter):
-		old_pen = painter.pen()
-		old_brush = painter.brush()
-		painter.setPen(QtCore.Qt.gray)		
-		for d in self.drawable_bwd:
-			d.paint(view_offset, painter)
-		painter.setPen(old_pen)
-		painter.setBrush(old_brush)
-		
-	def paint_avoids(self, view_offset, painter):
-		old_pen = painter.pen()
-		old_brush = painter.brush()
-		painter.setPen(self.pen_avoids)
-		for d in self.drawable_avoids:
-			d.paint(view_offset, painter)
-		painter.setPen(old_pen)
-		painter.setBrush(old_brush)
-		
-	def paint_path(self, view_offset, painter):
-		old_pen = painter.pen()
-		old_brush = painter.brush()
-		painter.setPen(self.pen_path)
-		for d in self.drawable_path:
-			d.paint(view_offset, painter)
-		painter.setPen(old_pen)
-		painter.setBrush(old_brush)
-
+		self.debug('  #paint_edges: painted %d/%d %s edges' % (
+			len(visible_edges_idxs), len(drawable), string_id))
+	
 	def prepare_drawable_data(self):	
 		# edges
-		self.drawable_fwd = to_drawable_edges2(self.forward[0], self.zoom)
-		self.drawable_bwd = to_drawable_edges(self.backward, self.zoom)
-		self.drawable_avoids = to_drawable_edges(self.avoids, self.zoom)
-		self.drawable_path = to_drawable_edges(self.path, self.zoom)
-		
+		self.drawable_fwd = to_drawable_edges(self.forward[0], self.zoom)
+		self.drawable_bwd = to_drawable_edges(self.backward[0], self.zoom)
+		self.drawable_avoids = to_drawable_edges(self.avoids[0], self.zoom)
+		self.drawable_path = to_drawable_edges(self.path[0], self.zoom)
 		
 		# vertices
 		#verts = []
@@ -148,28 +119,24 @@ class layer(layers.layer_interface):
 		#verts_drawable = [vertex(v) for v in verts]		
 		#self.drawable.extend(verts_drawable)
 			
-	def fill_qtree_fwd(self, data):		
+	def create_edge_qtree(self, data):
 		edges = data[0]
 		gps_rect = data[1]
-		self.qtree_fwd = qtree.quad_tree(gps_rect)
+		edge_qtree = qtree.quad_tree(gps_rect)
 		for key, e in enumerate(edges):
-			self.qtree_fwd.insert(e[0], key)
+			edge_qtree.insert(e[0], key)
+		return edge_qtree
 			
-
+	def view_geo_rect(self, view_offset, zoom):
+		w,h = self.widget.window_size()
+		x0,y0 = view_offset
+		xa,ya = (abs(x0), abs(y0)+h)
+		sw = gps.mercator.xy2gps((xa, ya), zoom)
+		ne = gps.mercator.xy2gps((xa+w, ya-h), zoom)
+		return QtCore.QRectF(sw[0], sw[1], ne[0]-sw[0], ne[1]-sw[1])
+		
+			
 def to_drawable_edges(edges, zoom):
-	forward_drawable = []
-	for e in edges:
-		s = e[0]
-		t = e[1]
-		p1_gps = gps.gpspos(s[0]/float(1e5), s[1]/float(1e5))
-		p2_gps = gps.gpspos(t[0]/float(1e5), t[1]/float(1e5))
-		if p1_gps.is_valid() and p2_gps.is_valid():
-			p1 = gps.mercator.gps2xy(p1_gps, zoom)
-			p2 = gps.mercator.gps2xy(p2_gps, zoom)		
-		forward_drawable.append(edge(p1, p2))
-	return forward_drawable
-
-def to_drawable_edges2(edges, zoom):
 	drawable_edges = []
 	for e in edges:
 		s = e[0]
@@ -191,6 +158,8 @@ def process_raw_edges(edges):
 		if s_gps.is_valid() and t_gps.is_valid():
 			d.append((s_gps, t_gps))
 			r = r.unite(to_rect(s_gps, t_gps))
+	# zvecsim ju o 10%, aby do nej padli vsetky body
+	r.adjust(-r.width()/20.0, -r.height()/20.0, r.width()/20.0, r.height()/20.0)
 	return (d, r)
 		
 def to_rect(s_gps, t_gps):
@@ -199,15 +168,6 @@ def to_rect(s_gps, t_gps):
 		abs(t_gps.lon - s_gps.lon))
 	return r
 	
-
-class position:
-	def __init__(self, x, y):
-		self.x = x
-		self.y = y
-		
-	def __hash__(self):		
-		return self.x<<32|self.y
-		 
 
 class drawable:
 	def paint(self):
