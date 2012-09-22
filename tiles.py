@@ -2,7 +2,9 @@
 # \author Adam Hlavatovič
 import sys, math, time, os
 from PyQt4 import QtCore, QtGui, QtNetwork
-import path_layer, vof_layer, transport_layer, osm_layer, edge_layer
+import path_layer, vof_layer, transport_layer, osm_layer, edge_layer, \
+	osmgraph_layer
+
 
 def main(args):
 	app = QtGui.QApplication(args)
@@ -80,7 +82,7 @@ class Form(QtGui.QMainWindow):
 		w,h = self.window_size()
 		qp.drawRect(0, 0, w, h)
 		for layer in self.layers:
-			layer.paint(qp)
+			layer.paint(qp, self.view_offset)
 
 		qp.end()
 		dt = time.clock() - t
@@ -101,6 +103,10 @@ class Form(QtGui.QMainWindow):
 				layer = edge_layer.layer(self)
 				layer.create(str(fname))
 				self.add_layer(layer)				
+			elif is_osmgraph_file(str(fname)):
+				layer = osmgraph_layer.layer(self)
+				layer.create(str(fname))
+				self.add_layer(layer)
 			else:
 				layer = transport_layer.layer(self)
 				layer.create(fname)
@@ -139,6 +145,9 @@ def is_path_file(fname):
 
 def is_edges_file(fname):
 	return os.path.splitext(fname)[1] == '.edges'
+
+def is_osmgraph_file(fname):
+	return os.path.splitext(fname)[1] == '.grp'
 
 def open_file_dialog(parent):
 	return QtGui.QFileDialog.getOpenFileName(parent, 'Open dump file ...')

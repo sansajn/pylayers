@@ -8,6 +8,7 @@ import gps, layers, qtree
 class layer(layers.layer_interface):
 	def __init__(self, widget):
 		layers.layer_interface.__init__(self, widget)
+		self.zoom = None
 		self.forward = ([], None)  # edges, rectange
 		self.backward = ([], None)
 		self.avoids = ([], None)
@@ -54,13 +55,12 @@ class layer(layers.layer_interface):
 		self.avoids = process_raw_edges([e for e in avoids])
 		self.qtree_avoids = self.create_edge_qtree(self.avoids)
 		
-	def paint(self, painter):
+	def paint(self, painter, view_offset):
 		t = time.clock()
 		
 		old_pen = painter.pen()
 		
 		painter.setPen(QtCore.Qt.black)
-		view_offset = self.widget.view_offset
 		self.paint_edges(self.drawable_fwd, self.qtree_fwd, view_offset, painter, 
 			'forward')
 		
@@ -82,6 +82,7 @@ class layer(layers.layer_interface):
 		self.debug('  #edge_layer.paint(): %f s' % (dt, ))
 
 	def zoom_event(self, zoom):
+		self.zoom = zoom
 		t = time.clock()
 
 		layers.layer_interface.zoom_event(self, zoom)

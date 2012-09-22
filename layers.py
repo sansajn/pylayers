@@ -5,23 +5,21 @@
 
 # \note create() > zoom_event() > [paint()]
 class layer_interface:
-	def __init__(self, widget):
-		self.zoom = None
-		self.widget = widget
+	def __init__(self, parent):
 		self.debug_prints = True
 
 	def create(self, uri):
 		pass
 
 	#! \param painter objekt typu QtGui.QPainter().
-	def paint(self, painter):
+	def paint(self, painter, view_offset):
 		pass
 
 	def key_press_event(self, event):
 		pass
 
 	def zoom_event(self, zoom):
-		self.zoom = zoom
+		pass		
 
 	def pan_event(self):
 		pass

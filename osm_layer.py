@@ -6,8 +6,10 @@ from PyQt4 import QtCore, QtGui, QtNetwork
 import layers
 
 class layer(layers.layer_interface):
-	def __init__(self, widget):
-		layers.layer_interface.__init__(self, widget)
+	def __init__(self, parent):
+		layers.layer_interface.__init__(self, parent)
+		self.parent = parent
+		self.zoom = None
 		self.hide = False
 		self.requested_tiles = set()
 		self.tile_ram_cache = {}
@@ -20,11 +22,11 @@ class layer(layers.layer_interface):
 		self.network = QtNetwork.QNetworkAccessManager()
 		self.network.setCache(self.tile_disk_cache)
 		
-		widget.connect(self.network, QtCore.SIGNAL('finished(QNetworkReply *)'),
+		parent.connect(self.network, QtCore.SIGNAL('finished(QNetworkReply *)'),
 			self.tile_reply_event)
 
 	#@{ layer_interface implementation
-	def paint(self, painter):
+	def paint(self, painter, view_offset):
 		if self.hide:
 			return
 		t = time.clock()
@@ -33,8 +35,8 @@ class layer(layers.layer_interface):
 		self.debug('  #osm_layer.paint(): %f s' % (dt, ))
 
 	def zoom_event(self, zoom):
+		self.zoom = zoom
 		t = time.clock()
-		layers.layer_interface.zoom_event(self, zoom)
 		self.clear_tile_ram_cache()
 		self.change_map()
 		dt = time.clock() - t
@@ -63,7 +65,7 @@ class layer(layers.layer_interface):
 		self.standard_update()
 
 	def standard_update(self):
-		self.widget.update()
+		self.parent.update()
 
 	def draw_map(self, painter):
 		r'Nakreslí mapu s dlaždíc v pamäti, alebo na disku.'
@@ -79,7 +81,7 @@ class layer(layers.layer_interface):
 					self.draw_tile(tile, j, i, painter)
 
 	def draw_tile(self, tile, x, y, painter):
-		x0,y0 = self.widget.view_offset
+		x0,y0 = self.parent.view_offset
 		painter.drawImage(QtCore.QPoint(x*256+x0, y*256+y0), tile)
 
 	def load_tile_from_image_cache(self, x, y):
@@ -124,8 +126,8 @@ class layer(layers.layer_interface):
 		return self.tile_disk_cache.data(url)
 
 	def visible_tiles(self):
-		w,h = self.widget.window_size()
-		x0,y0 = self.widget.view_offset
+		w,h = self.parent.window_size()
+		x0,y0 = self.parent.view_offset
 		N = M = 2**self.zoom
 		w_t = h_t = 256
 		rc_view = ((0, h), (w, 0)) 
