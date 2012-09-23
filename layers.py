@@ -7,6 +7,8 @@
 class layer_interface:
 	def __init__(self, parent):
 		self.debug_prints = True
+		self.name = 'none'
+		self.category = 'none'
 
 	def create(self, uri):
 		pass

@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 # Zobrazuje graf vygenerovaný programom 'osm/graph/graph_generator'.
-import sys, math, re, struct, time
+# \author Adam Hlavatovič
+import sys, math, re, struct, time, heapq
 from PyQt4 import QtCore, QtGui
 import gps, layers
 
@@ -8,16 +9,49 @@ import gps, layers
 class layer(layers.layer_interface):
 	def __init__(self, parent):
 		layers.layer_interface.__init__(self, parent)
+		self.parent = parent
 		self.graph = None
 		self.drawable = []
 
 	#@{ layer_interface
 	def create(self, graph_fname):
-		self.graph = graph(graph_fname)
+		gfile = graph_file(graph_fname)
+		self.graph = graph(gfile)
+
+		layer = self.parent.get_layer('map')
+		if layer:
+			raw_bounds = gfile.read_header()['bounds']
+			sw = gps.gpspos(raw_bounds[0][0]/float(1e7), 
+				raw_bounds[0][1]/float(1e7))
+			ne = gps.gpspos(raw_bounds[1][0]/float(1e7), 
+				raw_bounds[1][1]/float(1e7))
+			bounds = gps.gpsrect(sw, ne)
+			layer.zoom_to(bounds)
+
+		# compute sample route
+		tm = time.clock()
+		
+		s = 80
+		t = 5
+		search_algo = dijkstra(self.graph)
+		path = search_algo.search(s, t)
+		
+		dt = time.clock() - tm
+		print 'search takes: %f s' % (dt, )
 
 	def paint(self, painter, view_offset):
 		for d in self.drawable:
 			d.paint(painter, view_offset)
+
+		# test
+		v = 80
+		w = 5
+		v_xypos = self.signed2xypos(self.graph.vertex_property(v).position)
+		w_xypos = self.signed2xypos(self.graph.vertex_property(w).position)
+		from_mark = drawable_mark(v_xypos, 8)
+		to_mark = drawable_mark(w_xypos, 8)
+		from_mark.paint(painter, view_offset)
+		to_mark.paint(painter, view_offset)
 
 	def zoom_event(self, zoom):
 		self.zoom = zoom
@@ -29,6 +63,10 @@ class layer(layers.layer_interface):
 		self.debug('  #osmgraph_layer.zoom_event(): %f s' % (dt, ))
 
 	#@}
+
+	def signed2xypos(self, spos):
+		return gps.mercator.gps2xy(
+			gps.gpspos(spos.lat/float(1e7), spos.lon/float(1e7)), self.zoom)
 
 	def prepare_drawable_data(self):
 		g = self.graph
@@ -52,8 +90,9 @@ def to_drawable_edge(vprop, wprop, zoom):
 
 
 class graph:
-	def __init__(self, fname):
-		self._gf = graph_file(fname)
+	#! \param gfile graph_file structure
+	def __init__(self, gfile):
+		self._gf = gfile
 		self._header = self._gf.read_header()
 		self._itable = self._gf.read_itable(self._header)
 
@@ -89,9 +128,9 @@ class edge_prop:
 
 class vertex_prop:
 	def __init__(self, raw):
-		self.position = signed_coordinate(raw[0], raw[1])
+		self.position = signed_position(raw[0], raw[1])
 
-class signed_coordinate:
+class signed_position:
 	def __init__(self, lat, lon):
 		self.lat = lat
 		self.lon = lon
@@ -106,13 +145,14 @@ class graph_file:
 
 	def read_header(self):
 		self._fgraph.seek(0)
-		d = self._fgraph.read(16)
-		unpacked = struct.unpack('<IIII', d)
+		d = self._fgraph.read(32)
+		unpacked = struct.unpack('<8I', d)
 		return {
 			'vertices': unpacked[0],
 			'edges': unpacked[1],
-			'edge_idx': unpacked[2],
-			'itable_idx': unpacked[3]
+			'bounds': ((unpacked[2], unpacked[3]), (unpacked[4], unpacked[5])),
+			'edge_idx': unpacked[6],
+			'itable_idx': unpacked[7]
 		}
 
 	def read_itable(self, header):
@@ -143,7 +183,7 @@ class graph_file:
 		return edges
 
 	def read_vertex(self, idx):
-		self._fgraph.seek(16+8*idx)
+		self._fgraph.seek(32+8*idx)
 		d = self._fgraph.read(8)
 		return struct.unpack('ii', d)
 
@@ -170,3 +210,72 @@ class drawable_edge:
 			self.p2.y()+y0)		
 	#@}
 
+class drawable_mark:
+	def __init__(self, xypos, r):
+		self.xypos = QtCore.QPoint(xypos[0], xypos[1])
+		self.r = r
+
+	def paint(self, painter, view_offset):
+		x0,y0 = view_offset
+		painter.drawEllipse(self.xypos.x()+x0-self.r/2, 
+			self.xypos.y()+y0-self.r/2, self.r, self.r)
+
+
+
+# zatial tu, v budúcnosti presuniem do vlastnej vrstvy
+
+class dijkstra:
+	def __init__(self, graph):
+		self.g = graph
+		self.heap = []
+		self.props = {}
+		self.iteration = 0
+
+	def search(self, s, t):
+		g = self.g
+		heap = self.heap
+
+		s_prop = self.property(s)[1]
+		s_prop.distance = 0
+		heapq.heappush(heap, (0, s))
+
+		while len(heap) > 0:
+			self.iteration += 1
+			v = heapq.heappop(heap)[1]
+			if v == t:
+				break
+			for e in g.adjacent_edges(v):
+				w = g.target(e)
+				isnew, w_prop = self.property(w)
+				w_dist = self.distance(v) + g.cost(e)
+				if w_prop.distance > w_dist:
+					w_prop.distance = w_dist
+					w_prop.predecessor = v
+					if isnew:
+						heapq.heappush(heap, (w_dist, w))
+					else:
+						# update value (not implemented)
+						heapq.heappush(heap, (w_dist, w))
+
+		if v == t:
+			return self.construct_path(v)
+		else:
+			return None
+
+	def property(self, v):
+		try:
+			return (False, self.props[v])
+		except KeyError:
+			prop = property_record()
+			self.props[v] = prop
+			return (True, prop)
+
+	def distance(self, v):
+		return self.property(v)[1].distance
+
+
+class property_record:
+	def __init__(self):
+		self.distance = sys.maxint
+		self.predecessor = -1
+	

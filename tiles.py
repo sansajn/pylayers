@@ -20,34 +20,56 @@ class Form(QtGui.QMainWindow):
 		self.click_pos = (0, 0)
 		self.zoom = 2
 		self.layers = []
+		self.MAX_ZOOM = 17  # max osm zoom
 
 		self.resize(800, 600)
 
 		self.add_layer(osm_layer.layer(self))
 
+	#{@ Public interface
 	def add_layer(self, layer):
 		self.layers.append(layer)
 		layer.zoom_event(self.zoom)
-	
-	def zoom_event(self, step):
-		new_zoom = max(min(self.zoom+step, 17), 0)
-		if new_zoom == self.zoom:
-			return
-		center = self.view_center_on_map()
-		if step > 0:
-			center = (self.double_distance(center[0]), 
-				self.double_distance(center[1]))
-		else:
-			center = (center[0]/2, center[1]/2)
+
+	def get_layer(self, category, name=None):
+		for layer in self.layers:
+			if layer.category == category:
+				if name != None:
+					if layer.name == name:
+						return layer
+				else:
+					return layer
+		return None
+
+	def center_to(self, xypos):
 		w,h = self.window_size()
-		self.view_offset = (-center[0]+w/2, -center[1]+h/2)
-		self.zoom = new_zoom
+		self.view_offset = (-xypos[0]+w/2, -xypos[1]+h/2)
+
+	def set_zoom(self, zoom):
+		if zoom == self.zoom:
+			return
+		diff = zoom - self.zoom
+		center = self.view_center_on_map()
+		if diff > 0:
+			center = (self.scale_distance(center[0], 2*diff),
+				self.scale_distance(center[1], 2*diff))
+		else:
+			center = (center[0]/(2*diff), center[1]/(2*diff))
+
+		self.zoom = zoom
+		self.center_to(center)
+
 		print '\n#zoom_event(): zoom:%d' % (self.zoom, )
-		
+
 		self.set_window_title()
 
 		for layer in self.layers:
 			layer.zoom_event(self.zoom)
+	#}@
+
+	def zoom_event(self, step):
+		new_zoom = max(min(self.zoom+step, self.MAX_ZOOM), 0)
+		self.set_zoom(new_zoom)
 
 	def pan_event(self, diff):
 		self.view_offset = (self.view_offset[0] + diff[0], 
@@ -59,11 +81,11 @@ class Form(QtGui.QMainWindow):
 		w,h = self.window_size()
 		return (abs(self.view_offset[0]) + w/2, abs(self.view_offset[1]) + h/2)
 
-	def double_distance(self, x):
-		if x < 0:
-			return -(2*x)
+	def scale_distance(self, dist, n):
+		if dist < 0:
+			return -abs(n*dist);
 		else:
-			return 2*x
+			return n*dist
 
 	def set_window_title(self):
 		self.setWindowTitle('PyLayers (zoom:%d)' % (self.zoom, ))

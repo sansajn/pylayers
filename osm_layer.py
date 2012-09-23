@@ -3,12 +3,14 @@
 # \author Adam Hlavatovič
 import os, time, math
 from PyQt4 import QtCore, QtGui, QtNetwork
-import layers
+import layers, gps
 
 class layer(layers.layer_interface):
 	def __init__(self, parent):
 		layers.layer_interface.__init__(self, parent)
 		self.parent = parent
+		self.name = 'open-street-map'
+		self.category = 'map'
 		self.zoom = None
 		self.hide = False
 		self.requested_tiles = set()
@@ -56,6 +58,19 @@ class layer(layers.layer_interface):
 		if event.key() == QtCore.Qt.Key_M:
 			self.hide = not self.hide
 	#@}
+
+	def zoom_to(self, georect):
+		w,h = self.parent.window_size()
+		zoom = 0
+		for zoom in range(0, self.parent.MAX_ZOOM):
+			sw = gps.mercator.gps2xy(georect.sw, zoom)
+			ne = gps.mercator.gps2xy(georect.ne, zoom)
+			if abs(ne[0] - sw[0]) > w or abs(ne[1] - sw[1]) > h:
+				break
+		zoom = max(0, zoom-1)
+		self.parent.set_zoom(zoom)
+		self.parent.center_to(gps.mercator.gps2xy(georect.center(), zoom))
+		
 
 	def change_map(self):
 		self.debug('\n#osm_layer.change_map()')

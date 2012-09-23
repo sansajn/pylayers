@@ -25,9 +25,24 @@ class gpspos:
 			return self.lon
 		else:
 			raise Exception('index overflow only 0 or 1 supported')
+
+class gpsrect:
+	def __init__(self, sw, ne):
+		self.sw = sw
+		self.ne = ne
+
+	def width(self):
+		return abs(self.ne.lon - self.sw.lon)
+
+	def height(self):
+		return abs(self.ne.lat - self.sw.lat)
+
+	def center(self):
+		cpos = self.sw
+		cpos.lon += self.width()/2
+		cpos.lat += self.height()/2
+		return cpos
 			
-
-
 class mercator:
 	@staticmethod
 	def gps2xy(gpos, zoom):
