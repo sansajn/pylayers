@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 # Zobrazuje graf vygenerovaný programom 'osm/graph/graph_generator'.
 # \author Adam Hlavatovič
-import sys, math, re, struct, time, heapq
+import sys, math, re, struct, time, heapq, random
 from PyQt4 import QtCore, QtGui
 import gps, layers
 
@@ -29,29 +29,20 @@ class layer(layers.layer_interface):
 			layer.zoom_to(bounds)
 
 		# compute sample route
+		s = 150
+		t,distance = self._trace_vertex(s)
+
 		tm = time.clock()
 		
-		s = 80
-		t = 5
 		search_algo = dijkstra(self.graph)
 		path = search_algo.search(s, t)
 		
 		dt = time.clock() - tm
-		print 'search takes: %f s' % (dt, )
+		print 'search takes: %f s (%d -> %d : %d)' % (dt, s, t, distance)
 
 	def paint(self, painter, view_offset):
 		for d in self.drawable:
 			d.paint(painter, view_offset)
-
-		# test
-		v = 80
-		w = 5
-		v_xypos = self.signed2xypos(self.graph.vertex_property(v).position)
-		w_xypos = self.signed2xypos(self.graph.vertex_property(w).position)
-		from_mark = drawable_mark(v_xypos, 8)
-		to_mark = drawable_mark(w_xypos, 8)
-		from_mark.paint(painter, view_offset)
-		to_mark.paint(painter, view_offset)
 
 	def zoom_event(self, zoom):
 		self.zoom = zoom
@@ -76,6 +67,17 @@ class layer(layers.layer_interface):
 				w = g.target(e)
 				wprop = g.vertex_property(w)
 				self.drawable.append(to_drawable_edge(vprop, wprop, self.zoom))
+
+	def _trace_vertex(self, v):
+		g = self.graph
+		distance = 0
+		while True:
+			edges = g.adjacent_edges(v)
+			if len(edges) == 0:
+				break
+			v = g.target(edges[random.randint(0, len(edges)-1)])
+			distance += 1
+		return (v, distance)
 			
 
 def to_drawable_edge(vprop, wprop, zoom):
@@ -235,7 +237,7 @@ class dijkstra:
 		g = self.g
 		heap = self.heap
 
-		s_prop = self.property(s)[1]
+		s_prop = self._property(s)[1]
 		s_prop.distance = 0
 		heapq.heappush(heap, (0, s))
 
@@ -246,8 +248,8 @@ class dijkstra:
 				break
 			for e in g.adjacent_edges(v):
 				w = g.target(e)
-				isnew, w_prop = self.property(w)
-				w_dist = self.distance(v) + g.cost(e)
+				isnew, w_prop = self._property(w)
+				w_dist = self._distance(v) + g.cost(e)
 				if w_prop.distance > w_dist:
 					w_prop.distance = w_dist
 					w_prop.predecessor = v
@@ -258,11 +260,14 @@ class dijkstra:
 						heapq.heappush(heap, (w_dist, w))
 
 		if v == t:
-			return self.construct_path(v)
+			return self._construct_path(v)
 		else:
 			return None
 
-	def property(self, v):
+	def _construct_path(self, v):
+		return v  # not yet implemented
+
+	def _property(self, v):
 		try:
 			return (False, self.props[v])
 		except KeyError:
@@ -270,8 +275,9 @@ class dijkstra:
 			self.props[v] = prop
 			return (True, prop)
 
-	def distance(self, v):
-		return self.property(v)[1].distance
+	def _distance(self, v):
+		return self._property(v)[1].distance
+
 
 
 class property_record:
