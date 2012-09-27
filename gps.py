@@ -2,6 +2,11 @@
 # \author Adam Hlavatovič
 import math
 
+class signed_position:
+	def __init__(self, lat, lon):
+		self.lat = lat
+		self.lon = lon
+
 class gpspos:
 	def __init__(self, lat, lon):
 		self.lat = lat

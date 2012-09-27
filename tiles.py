@@ -8,13 +8,13 @@ import path_layer, vof_layer, transport_layer, osm_layer, edge_layer, \
 
 def main(args):
 	app = QtGui.QApplication(args)
-	form = Form()
+	form = Form(args)
 	form.show()
 	app.exec_()
 
 
 class Form(QtGui.QMainWindow):
-	def __init__(self):
+	def __init__(self, args):
 		QtGui.QMainWindow.__init__(self, None)
 		self.view_offset = (0, 0)
 		self.click_pos = (0, 0)
@@ -25,6 +25,9 @@ class Form(QtGui.QMainWindow):
 		self.resize(800, 600)
 
 		self.add_layer(osm_layer.layer(self))
+
+		if len(args) > 1:
+			self._open_file(args[1])
 
 	#{@ Public interface
 	def add_layer(self, layer):
@@ -54,7 +57,8 @@ class Form(QtGui.QMainWindow):
 			center = (self.scale_distance(center[0], 2*diff),
 				self.scale_distance(center[1], 2*diff))
 		else:
-			center = (center[0]/(2*diff), center[1]/(2*diff))
+			scale = max(2, 2*diff)
+			center = (center[0]/scale, center[1]/scale)
 
 		self.zoom = zoom
 		self.center_to(center)
@@ -65,7 +69,7 @@ class Form(QtGui.QMainWindow):
 
 		for layer in self.layers:
 			layer.zoom_event(self.zoom)
-	#}@
+	#}@ Public interface
 
 	def zoom_event(self, step):
 		new_zoom = max(min(self.zoom+step, self.MAX_ZOOM), 0)
@@ -113,26 +117,8 @@ class Form(QtGui.QMainWindow):
 	def keyPressEvent(self, e):
 		if e.key() == QtCore.Qt.Key_O:
 			fname = open_file_dialog(self)
-			if is_vof_file(str(fname)):
-				layer = vof_layer.layer(self, self.zoom)
-				layer.create(fname)
-				self.add_layer(layer)
-			elif is_path_file(str(fname)):
-				layer = path_layer.layer(self)
-				layer.create(fname)
-				self.add_layer(layer)
-			elif is_edges_file(str(fname)):
-				layer = edge_layer.layer(self)
-				layer.create(str(fname))
-				self.add_layer(layer)				
-			elif is_osmgraph_file(str(fname)):
-				layer = osmgraph_layer.layer(self)
-				layer.create(str(fname))
-				self.add_layer(layer)
-			else:
-				layer = transport_layer.layer(self)
-				layer.create(fname)
-				self.add_layer(layer)
+			self._open_file(fname)
+
 		for layer in self.layers:
 			layer.key_press_event(e)
 		self.update()
@@ -156,6 +142,31 @@ class Form(QtGui.QMainWindow):
 	def resizeEvent(self, e):
 		self.update()
 	#@}  Qt events
+
+	def _open_file(self, fname):
+		if is_vof_file(str(fname)):
+			layer = vof_layer.layer(self, self.zoom)
+			layer.create(fname)
+			self.add_layer(layer)
+		elif is_path_file(str(fname)):
+			layer = path_layer.layer(self)
+			layer.create(fname)
+			self.add_layer(layer)
+		elif is_edges_file(str(fname)):
+			layer = edge_layer.layer(self)
+			layer.create(str(fname))
+			self.add_layer(layer)				
+		elif is_osmgraph_file(str(fname)):
+			layer = osmgraph_layer.layer(self)
+			layer.create(str(fname))
+			self.add_layer(layer)
+		else:
+			layer = transport_layer.layer(self)
+			layer.create(fname)
+			self.add_layer(layer)
+
+		self.update()
+
 
 
 
