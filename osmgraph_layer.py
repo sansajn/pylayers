@@ -3,7 +3,7 @@
 # \author Adam Hlavatovič
 import sys, math, time, random
 from PyQt4 import QtCore, QtGui
-import layers, gps, osmgraph_file, osmgraph_graph, dijkstra
+import layers, gps, qtree, osmgraph_file, osmgraph_graph, dijkstra
 
 
 class layer(layers.layer_interface):
@@ -13,34 +13,32 @@ class layer(layers.layer_interface):
 		self.gfile = None
 		self.graph = None
 		self.drawable = []
-		self.path = None
+		self.path = []
 		self.drawable_path = []
 		self.sample_compute = True
-		self.vertex_qtree = None  # vrcholy grafu v q-tree
+		self.vertex_qtree = None
 
 	#@{ layer-interface
 	def create(self, graph_fname):
 		self.gfile = osmgraph_file.graph_file(graph_fname)
 		self.graph = osmgraph_graph.graph(self.gfile)
 
-		graph_header = self.gfile.read_header()
-
 		layer = self.parent.get_layer('map')
 		if layer:
-			raw_bounds = graph_header['bounds']
-			sw = gps.gpspos(
-				raw_bounds[0][0]/float(1e7), raw_bounds[0][1]/float(1e7))
-			ne = gps.gpspos(
-				raw_bounds[1][0]/float(1e7), raw_bounds[1][1]/float(1e7))
-			bounds = gps.gpsrect(sw, ne)
-			layer.zoom_to(bounds)
+			layer.zoom_to(self._graph_gps_bounds())
+
+		bounds = self._graph_bounds()
+		self.vertex_qtree = qtree.quad_tree(
+			QtCore.QRectF(bounds.x(), bounds.y(), bounds.width(), 
+				bounds.height()))
+		fill_vertex_qtree(self.graph, self.vertex_qtree)
 
 
 	def paint(self, painter, view_offset):
 		# graph
 		for d in self.drawable:
 			d.paint(painter, view_offset)
-		#path
+		# path
 		for d in self.drawable_path:
 			painter.setPen(QtGui.QColor(218, 0, 0))
 			d.paint(painter, view_offset)
@@ -48,7 +46,7 @@ class layer(layers.layer_interface):
 	def zoom_event(self, zoom):
 		self.zoom = zoom
 
-		if self.sample_compute:
+		if self.sample_compute and False:
 			# compute sample route
 			graph_header = self.gfile.read_header()
 			s = 4032 #random.randint(0, graph_header['vertices'])
@@ -68,18 +66,14 @@ class layer(layers.layer_interface):
 			self.sample_compute = False
 
 		t = time.clock()
-		self.prepare_drawable_data()
+		self._prepare_drawable_data()
 		dt = time.clock() - t
 
 		self.debug('  #osmgraph_layer.zoom_event(): %f s' % (dt, ))
 
 	#@} layer-interface
 
-	def signed2xypos(self, spos):
-		return gps.mercator.gps2xy(
-			gps.gpspos(spos.lat/float(1e7), spos.lon/float(1e7)), self.zoom)
-
-	def prepare_drawable_data(self):
+	def _prepare_drawable_data(self):
 		g = self.graph
 		for v in g.vertices():
 			vprop = g.vertex_property(v)
@@ -99,7 +93,6 @@ class layer(layers.layer_interface):
 
 			print 'path length: %d' % (len(path), )
 
-
 	def _trace_vertex(self, v):
 		g = self.graph
 		distance = 0
@@ -111,6 +104,19 @@ class layer(layers.layer_interface):
 			distance += 1
 		return (v, distance)
 			
+	def _graph_bounds(self):
+		graph_header = self.gfile.read_header()
+		bounds = graph_header['bounds']
+		sw = gps.signed_position(bounds[0][0], bounds[0][1])
+		ne = gps.signed_position(bounds[1][0], bounds[1][1])
+		return gps.georect(sw, ne)
+
+	def _graph_gps_bounds(self):
+		b = self._graph_bounds()
+		sw = gps.gpspos(b.sw.lat/float(1e7), b.sw.lon/float(1e7))
+		ne = gps.gpspos(b.ne.lat/float(1e7), b.ne.lon/float(1e7))
+		return gps.georect(sw, ne)
+
 
 def to_drawable_edge(vprop, wprop, zoom):
 	vpos = [vprop.position.lat/float(1e7), vprop.position.lon/float(1e7)]
@@ -121,6 +127,12 @@ def to_drawable_edge(vprop, wprop, zoom):
 
 	return drawable_edge(vpos_xy, wpos_xy);
 	
+
+def fill_vertex_qtree(g, tree):
+	for v in g.vertices():
+		vpos = g.vertex_property(v).position
+		tree.insert((vpos.lat, vpos.lon), v)
+
 
 class drawable_edge:
 	def __init__(self, p1, p2):

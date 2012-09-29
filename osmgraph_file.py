@@ -12,7 +12,7 @@ class graph_file:
 	def read_header(self):
 		self._fgraph.seek(0)
 		d = self._fgraph.read(32)
-		unpacked = struct.unpack('<8I', d)
+		unpacked = struct.unpack('<IIiiiiII', d)
 		return {
 			'vertices': unpacked[0],
 			'edges': unpacked[1],

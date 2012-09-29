@@ -29,7 +29,10 @@ class layer_interface:
 	# \param event QMouseEvent
 	def mouse_press_event(self, event):
 		pass
-	
+
+	def mouse_release_event(self, event):
+		pass
+
 	def debug(self, msg):
 		if self.debug_prints:
 			print msg

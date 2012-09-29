@@ -2,13 +2,16 @@
 # Rekurzívna implementácia 'quad tree' štruktúry.
 from PyQt4 import QtCore
 
+
 class quad_tree:
 	def __init__(self, area):
-		r'\param area Musi platit vyraz area.x(), area.y(), area.width() a area.heigth().'
+		r'''\param area Výrazy area.x(), area.y(), area.width(),	area.heigth(), 
+			area.contains() musia byť platne.'''
 		self.size = 0
 		self.root = quad_node(area)
 
 	def insert(self, xypos, value):
+		r' \param xypos dvojica koordinátou určujúca pozíciu hodnoty v strome.'
 		self.size += 1
 		self.root.insert(xypos, value)
 
@@ -24,6 +27,9 @@ class quad_node:
 		self.area = area
 
 	def insert(self, xypos, value):
+		if not self.contains(xypos):
+			raise Exception('error: lost data (%g, %g)!' % xypos)
+
 		if len(self.elems) == quad_node.MAX_NODE_ELEMS:
 			if len(self.children) == 0:
 				self.subdivide()
@@ -60,4 +66,3 @@ class quad_node:
 	def contains(self, xypos):
 		return self.area.contains(xypos[0], xypos[1])
 
-		

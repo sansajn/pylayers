@@ -31,22 +31,37 @@ class gpspos:
 		else:
 			raise Exception('index overflow only 0 or 1 supported')
 
-class gpsrect:
+class georect:
 	def __init__(self, sw, ne):
+		r'Expressions sw.lat, sw.lom must be valid (same for ne).'
 		self.sw = sw
 		self.ne = ne
 
 	def width(self):
-		return abs(self.ne.lon - self.sw.lon)
+		return abs(self.ne.lat - self.sw.lat)
 
 	def height(self):
-		return abs(self.ne.lat - self.sw.lat)
+		return abs(self.ne.lon - self.sw.lon)
+
+	def x(self):
+		r'Vráti prvú súracnicu použitého systému.'
+		return self.sw.lat
+
+	def y(self):
+		r'Vráti druhú súradnicu použitého systému.'
+		return self.sw.lon
 
 	def center(self):
 		cpos = self.sw
 		cpos.lon += self.width()/2
 		cpos.lat += self.height()/2
 		return cpos
+
+	def contains(self, lat, lon):
+		sw, ne = (self.sw, self.ne)
+		return lat >= sw.lat and lat <= ne.lat and lon >= sw.lon	\
+			and lon <= ne.lon
+
 			
 class mercator:
 	@staticmethod

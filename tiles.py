@@ -134,6 +134,9 @@ class Form(QtGui.QMainWindow):
 		for layer in self.layers:
 			layer.mouse_press_event(e)
 
+	def mouseReleaseEvent(self, e):
+		print '### mouseReleaseEvent'
+
 	def mouseMoveEvent(self, e):
 		diff = (e.x() - self.click_pos[0], e.y() - self.click_pos[1])
 		self.click_pos = (e.x(), e.y())
