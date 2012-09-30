@@ -27,8 +27,8 @@ class quad_node:
 		self.area = area
 
 	def insert(self, xypos, value):
-		if not self.contains(xypos):
-			raise Exception('error: lost data (%g, %g)!' % xypos)
+
+		assert self.contains(xypos), 'logic error: position not in area'
 
 		if len(self.elems) == quad_node.MAX_NODE_ELEMS:
 			if len(self.children) == 0:

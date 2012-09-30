@@ -15,7 +15,7 @@ class layer(layers.layer_interface):
 		self.hide = False
 		self.requested_tiles = set()
 		self.tile_ram_cache = {}
-		
+
 		self.tile_disk_cache = QtNetwork.QNetworkDiskCache()
 		self.tile_disk_cache.setCacheDirectory(
 			os.path.join(temp_directory(), 'tiles'))
@@ -71,7 +71,6 @@ class layer(layers.layer_interface):
 		self.parent.set_zoom(zoom)
 		self.parent.center_to(gps.mercator.gps2xy(georect.center(), zoom))
 		
-
 	def change_map(self):
 		self.debug('\n#osm_layer.change_map()')
 		tiles = self.tiles_not_in_cache(self.visible_tiles())

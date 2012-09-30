@@ -17,6 +17,8 @@ class layer(layers.layer_interface):
 		self.drawable_path = []
 		self.sample_compute = True
 		self.vertex_qtree = None
+		self.source_vertex = -1
+		self.target_vertex = -1
 
 	#@{ layer-interface
 	def create(self, graph_fname):
@@ -71,9 +73,44 @@ class layer(layers.layer_interface):
 
 		self.debug('  #osmgraph_layer.zoom_event(): %f s' % (dt, ))
 
+	def mouse_release_event(self, event):
+		r = self._smallest_rectangle(
+			self.parent.to_world_coordinates((event.x(), event.y())))
+		verts = self.vertex_qtree.lookup(r)
+		if len(verts) == 0:
+			print 'nothing found'
+			return
+
+		#assert len(verts) < 2, 'more than one vertex in the area'
+		if len(verts) > 1:
+			print 'found %d vertices in selection' % (len(verts), )
+
+		v = verts[0]
+		print 'selected vertex: %d' % (v, )
+
+		if self.source_vertex == -1:
+			self.source_vertex = v
+		else:
+			self.target_vertex = v
+			self._compute_path()
+
+	def _compute_path(self):
+		tm = time.clock()
+		search_algo = dijkstra.dijkstra(self.graph)
+		self.path = search_algo.search(self.source_vertex, self.target_vertex)
+		dt = time.clock() - tm
+		print 'search takes: %f s (%d -> %d : %d)' % (dt, self.source_vertex, 
+			self.target_vertex, len(self.path))
+
+		if len(self.path) > 1:
+			self._fill_drawable_path()
+			self.parent.update()
+			self.source_vertex = self.target_vertex = -1
+
 	#@} layer-interface
 
 	def _prepare_drawable_data(self):
+		self.drawable = []
 		g = self.graph
 		for v in g.vertices():
 			vprop = g.vertex_property(v)
@@ -82,7 +119,11 @@ class layer(layers.layer_interface):
 				wprop = g.vertex_property(w)
 				self.drawable.append(to_drawable_edge(vprop, wprop, self.zoom))
 
-		# drawable_path
+		if len(self.path) > 0:
+			self._fill_drawable_path()
+
+	def _fill_drawable_path(self):
+		self.drawable_path = []
 		path = self.path
 		if len(path) > 1:
 			for i in range(0, len(path)-1):
@@ -90,8 +131,6 @@ class layer(layers.layer_interface):
 				wprop = self.graph.vertex_property(path[i+1])
 				self.drawable_path.append(to_drawable_edge(vprop, wprop, 
 					self.zoom))
-
-			print 'path length: %d' % (len(path), )
 
 	def _trace_vertex(self, v):
 		g = self.graph
@@ -116,6 +155,15 @@ class layer(layers.layer_interface):
 		sw = gps.gpspos(b.sw.lat/float(1e7), b.sw.lon/float(1e7))
 		ne = gps.gpspos(b.ne.lat/float(1e7), b.ne.lon/float(1e7))
 		return gps.georect(sw, ne)
+
+	def _smallest_rectangle(self, xypos):
+		p1 = gps.mercator.xy2gps((xypos[0]-20, xypos[1]-20), self.zoom)
+		p2 = gps.mercator.xy2gps((xypos[0]+20, xypos[1]+20), self.zoom)
+		sw = gps.gpspos(min(p1.lat, p2.lat), min(p1.lon, p2.lon))
+		ne = gps.gpspos(max(p1.lat, p2.lat), max(p1.lon, p2.lon))
+		r = gps.georect(sw, ne)
+		return QtCore.QRectF(r.x()*1e7, r.y()*1e7, r.width()*1e7, 
+			r.height()*1e7)
 
 
 def to_drawable_edge(vprop, wprop, zoom):
