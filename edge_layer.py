@@ -7,8 +7,9 @@ import gps, layers, qtree
 
 class layer(layers.layer_interface):
 	def __init__(self, widget):
-		layers.layer_interface.__init__(self, widget)
+		layers.layer_interface.__init__(self)
 		self.zoom = None
+		self.widget = widget
 		self.forward = ([], None)  # edges, rectange
 		self.backward = ([], None)
 		self.avoids = ([], None)
@@ -96,7 +97,7 @@ class layer(layers.layer_interface):
 	#@}
 	
 	def paint_edges(self, drawable, edge_qtree, view_offset, painter, 
-		string_id = ''):		
+		string_id = ''):
 		visible_edges_idxs = edge_qtree.lookup(
 			self.view_geo_rect(view_offset, self.zoom))
 		for idx in visible_edges_idxs:

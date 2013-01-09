@@ -155,7 +155,7 @@ class Form(QtGui.QMainWindow):
 
 	def _open_file(self, fname):
 		if is_vof_file(str(fname)):
-			layer = vof_layer.layer(self, self.zoom)
+			layer = vof_layer.layer(self)
 			layer.create(fname)
 			self.add_layer(layer)
 		elif is_path_file(str(fname)):

@@ -7,10 +7,11 @@ import layers, vof_dump
 
 
 class layer(layers.layer_interface):
-	def __init__(self, widget, zoom):
-		layers.layer_interface.__init__(self, widget)
-		self.zoom = zoom
-		self.show_verts = True
+	def __init__(self, widget):
+		layers.layer_interface.__init__(self)
+		self.zoom = None
+		self.widget = widget
+		self.show_verts = True		
 
 	# public
 	def create(self, fname):
@@ -18,9 +19,8 @@ class layer(layers.layer_interface):
 		self.process_dump(reader.graph(), reader.path(), reader.fromto())
 
 	# public
-	def paint(self, painter):
-		zoom = self.zoom
-		view_offset = self.widget.view_offset
+	def paint(self, painter, view_offset):
+		zoom = self.zoom		
 		self.draw_edges(self.white, view_offset, zoom, (0, 0, 0), painter)
 		self.draw_edges(self.grey, view_offset, zoom, (0, 0, 0), painter)
 		self.draw_white_verts(self.white_verts, view_offset, zoom, painter)
@@ -34,6 +34,7 @@ class layer(layers.layer_interface):
 	# public
 	def zoom_event(self, zoom):
 		layers.layer_interface.zoom_event(self, zoom)
+		self.zoom = zoom
 		self.calculate_vertices_xy(self.white_verts)
 		self.calculate_vertices_xy(self.grey_verts)
 		

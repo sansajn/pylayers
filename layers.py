@@ -5,7 +5,7 @@
 
 # \note create() > zoom_event() > [paint()]
 class layer_interface:
-	def __init__(self, parent):
+	def __init__(self):
 		self.debug_prints = True
 		self.name = 'none'
 		self.category = 'none'

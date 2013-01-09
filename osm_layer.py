@@ -7,7 +7,7 @@ import layers, gps
 
 class layer(layers.layer_interface):
 	def __init__(self, parent):
-		layers.layer_interface.__init__(self, parent)
+		layers.layer_interface.__init__(self)
 		self.parent = parent
 		self.name = 'open-street-map'
 		self.category = 'map'
