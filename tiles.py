@@ -3,7 +3,7 @@
 import sys, math, time, os
 from PyQt4 import QtCore, QtGui, QtNetwork
 import path_layer, vof_layer, transport_layer, osm_layer, edge_layer, \
-	osmgraph_layer
+	osmgraph_layer, cluster_layer
 
 
 def main(args):
@@ -170,6 +170,10 @@ class Form(QtGui.QMainWindow):
 			layer = osmgraph_layer.layer(self)
 			layer.create(str(fname))
 			self.add_layer(layer)
+		elif is_cluster_file(str(fname)):
+			layer = cluster_layer.layer(self)
+			layer.create(str(fname))
+			self.add_layer(layer)
 		else:
 			layer = transport_layer.layer(self)
 			layer.create(fname)
@@ -188,6 +192,9 @@ def is_path_file(fname):
 
 def is_edges_file(fname):
 	return os.path.splitext(fname)[1] == '.edges'
+
+def is_cluster_file(fname):
+	return os.path.splitext(fname)[1] == '.cluster'
 
 def is_osmgraph_file(fname):
 	return os.path.splitext(fname)[1] == '.grp'
