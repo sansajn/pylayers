@@ -248,14 +248,19 @@ class layer(layer_interface.layer):
 		self.tile_approx_cache = {}
 
 	def approximate_tile(self, x, y, z):
-		# prehladaj disk cache pre dlazdicu na x,y na leveli z-1
-		x_down, y_down, z_down = (x/2, y/2, z-1)
-		tile = self.load_tile_from_disk_cache(x_down, y_down, z_down)
-		if tile:
-			x_corner, y_corner = (x%2, y%2)
-			tile = tile.copy(256/2*x_corner, 256/2*y_corner, 256/2, 256/2)
-			tile = tile.scaled(256, 256)
-			return tile
+		# prehladaj disk cache pre dlazdicu na x,y nizsich leveloch
+		z_down = z-1
+		while z_down > -1:
+			divider = (z-z_down)*2
+			x_down, y_down = (x/divider, y/divider)
+			tile = self.load_tile_from_disk_cache(x_down, y_down, z_down)
+			if tile:
+				x_corner, y_corner = (x%divider, y%divider)
+				w = 256/divider
+				tile = tile.copy(w*x_corner, w*y_corner, w, w)
+				tile = tile.scaled(256, 256)
+				return tile			
+			z_down -= 1
 		return None
 	
 
