@@ -64,6 +64,9 @@ class georect:
 
 			
 class mercator:
+	r'''\note Pri zmene levelu nie je potrebné znova počítať xy súradnice, stačí
+	ich vynásobiť koeficientom 2^(zoom_diff), kde zoom_dif je zmena levelu.'''
+
 	@staticmethod
 	def gps2xy(gpos, zoom):
 		r'\param gpos gpspos(lat, lon)'

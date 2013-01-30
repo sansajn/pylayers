@@ -2,18 +2,19 @@
 # \author Adam Hlavatovič
 import time
 from PyQt4 import QtCore, QtGui
-import gps, layers, qtree
+import layer_interface, gps, qtree
 
 
-class layer(layers.layer_interface):
+class layer(layer_interface.layer):
 	def __init__(self, widget):
-		layers.layer_interface.__init__(self)
+		layer_interface.layer.__init__(self)
 		self.zoom = None
 		self.widget = widget
 		self.forward = ([], None)  # edges, rectange
 		self.backward = ([], None)
 		self.avoids = ([], None)
 		self.path = ([], None)
+		self.costs = None
 		self.drawable_fwd = []
 		self.drawable_bwd = []
 		self.drawable_avoids = []
@@ -124,18 +125,14 @@ class layer(layers.layer_interface):
 	
 	def prepare_drawable_data(self):
 		# edges
-		self.drawable_fwd = to_drawable_edges(self.forward[0], self.costs, self.zoom)
-		self.drawable_bwd = to_drawable_edges(self.backward[0], self.costs, self.zoom)
-		self.drawable_avoids = to_drawable_edges(self.avoids[0], self.costs, self.zoom)
-		self.drawable_path = to_drawable_edges(self.path[0], self.costs, self.zoom)
-		
-		# vertices
-		#verts = []
-		#for e in self.drawable:
-		#	verts.append((e.p1.x(), e.p1.y()))
-		#	verts.append((e.p2.x(), e.p2.y()))	
-		#verts_drawable = [vertex(v) for v in verts]		
-		#self.drawable.extend(verts_drawable)
+		self.drawable_fwd = to_drawable_edges(self.forward[0], 
+			self.costs,	self.zoom)
+		self.drawable_bwd = to_drawable_edges(self.backward[0], 
+			self.costs,	self.zoom)
+		self.drawable_avoids = to_drawable_edges(self.avoids[0], 
+			self.costs,	self.zoom)
+		self.drawable_path = to_drawable_edges(self.path[0], 
+			self.costs,	self.zoom)
 			
 	def create_edge_qtree(self, data):
 		edges = data[0]
