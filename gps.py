@@ -33,7 +33,7 @@ class gpspos:
 
 class georect:
 	def __init__(self, sw, ne):
-		r'Expressions sw.lat, sw.lom must be valid (same for ne).'
+		r'Expressions sw.lat, sw.lon must be valid (same for ne).'
 		self.sw = sw
 		self.ne = ne
 

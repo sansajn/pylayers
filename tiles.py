@@ -1,9 +1,16 @@
 # -*- coding: utf-8 -*-
 # \author Adam Hlavatovič
+# todo: zoom over 17
 import sys, math, time, os
 from PyQt4 import QtCore, QtGui, QtNetwork
-import path_layer, vof_layer, transport_layer, osm_layer, edge_layer, \
-	osmgraph_layer, cluster_layer
+import path_layer
+import vof_layer 
+import transport_layer 
+import osm_layer 
+import edge_layer
+import osmgraph_layer 
+import cluster_layer
+import path2_layer
 
 
 def main(args):
@@ -68,8 +75,14 @@ class Form(QtGui.QMainWindow):
 			layer.zoom_event(self.zoom)
 
 	def to_world_coordinates(self, xypos):
+		'Transform window coordinates to world coordinates.'
 		return (xypos[0]-self.view_offset[0], xypos[1]-self.view_offset[1])
+	
+	def window_size(self):
+		r = self.geometry()
+		return (r.width(), r.height())	
 	#}@ Public interface
+	
 
 	def zoom_event(self, step):
 		new_zoom = max(min(self.zoom+step, self.MAX_ZOOM), 0)
@@ -95,10 +108,7 @@ class Form(QtGui.QMainWindow):
 
 	def set_window_title(self):
 		self.setWindowTitle('PyLayers (zoom:%d)' % (self.zoom, ))
-	
-	def window_size(self):
-		r = self.geometry()
-		return (r.width(), r.height())
+		
 
 	#@{ Qt events
 	def paintEvent(self, e):
@@ -158,9 +168,13 @@ class Form(QtGui.QMainWindow):
 			layer = vof_layer.layer(self)
 			layer.create(fname)
 			self.add_layer(layer)
-		elif is_path_file(str(fname)):
+		elif is_path_diff_file(str(fname)):
 			layer = path_layer.layer(self)
 			layer.create(fname)
+			self.add_layer(layer)
+		elif is_path2_file(str(fname)):
+			layer = path2_layer.layer(self)
+			layer.create(str(fname))
 			self.add_layer(layer)
 		elif is_edges_file(str(fname)):
 			layer = edge_layer.layer(self)
@@ -187,8 +201,11 @@ class Form(QtGui.QMainWindow):
 def is_vof_file(fname):
 	return os.path.splitext(fname)[1] == '.vof'
 
-def is_path_file(fname):
+def is_path_diff_file(fname):
 	return os.path.splitext(fname)[1] == '.out'
+
+def is_path2_file(fname):
+	return os.path.splitext(fname)[1] == '.path'
 
 def is_edges_file(fname):
 	return os.path.splitext(fname)[1] == '.edges'
