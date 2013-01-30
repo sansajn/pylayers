@@ -3,11 +3,12 @@
 # \author Adam Hlavatovič
 import os, time, math
 from PyQt4 import QtCore, QtGui, QtNetwork
-import layers, gps
+import layer_interface, gps
 
-class layer(layers.layer_interface):
+
+class layer(layer_interface.layer):
 	def __init__(self, parent):
-		layers.layer_interface.__init__(self)
+		layer_interface.layer.__init__(self)
 		self.parent = parent
 		self.name = 'open-street-map'
 		self.category = 'map'
@@ -15,6 +16,7 @@ class layer(layers.layer_interface):
 		self.hide = False
 		self.requested_tiles = set()
 		self.tile_ram_cache = {}
+		self.tile_approx_cache = {}
 
 		self.tile_disk_cache = QtNetwork.QNetworkDiskCache()
 		self.tile_disk_cache.setCacheDirectory(
@@ -32,16 +34,21 @@ class layer(layers.layer_interface):
 		if self.hide:
 			return
 		t = time.clock()
+
 		self.draw_map(painter)
+		
 		dt = time.clock() - t
 		self.debug('  #osm_layer.paint(): %f s' % (dt, ))
 
 	def zoom_event(self, zoom):
 		self.zoom = zoom
 		t = time.clock()
+		
 		self.clear_tile_ram_cache()
+		self.clear_tile_approx_cache()
 		self.change_map()
 		dt = time.clock() - t
+		
 		self.debug('  #osm_layer.zoom_event(): %f s' % (dt, ))
 
 	def pan_event(self):
@@ -82,15 +89,18 @@ class layer(layers.layer_interface):
 		self.parent.update()
 
 	def draw_map(self, painter):
-		r'Nakreslí mapu s dlaždíc v pamäti, alebo na disku.'
+		r'''Nakreslí mapu s dlaždíc v pamäti, alebo na disku (alebo 
+		approximaciou dlazdice z nizsieho levelu).'''
 		y,x = self.visible_tiles()
 		for i in range(y[0], y[1]):
 			for j in range(x[0], x[1]):
-				tile = self.load_tile_from_image_cache(j, i)
+				tile = self.load_tile_from_ram_cache(j, i)
 				if tile == None:
-					tile = self.load_tile_from_disk_cache(j, i)
+					tile = self.load_tile_from_disk_cache(j, i, self.zoom)
 					if tile:
 						self.insert_tile_to_ram_cache(tile, j, i)
+					else:
+						tile = self.use_approximated_tile(j, i)
 				if tile:
 					self.draw_tile(tile, j, i, painter)
 
@@ -98,24 +108,37 @@ class layer(layers.layer_interface):
 		x0,y0 = self.parent.view_offset
 		painter.drawImage(QtCore.QPoint(x*256+x0, y*256+y0), tile)
 
-	def load_tile_from_image_cache(self, x, y):
+	def load_tile_from_ram_cache(self, x, y):
 		return self.find_in_ram_cache(x, y, self.zoom)
 
-	def load_tile_from_disk_cache(self, x, y):
-		url = QtCore.QUrl(self.construct_tile_url(x, y, self.zoom))
+	def load_tile_from_disk_cache(self, x, y, z):
+		url = QtCore.QUrl(self.construct_tile_url(x, y, z))
 		cache_item = self.tile_disk_cache.data(url)
 		if cache_item:
 			tile = QtGui.QImage()
-			tile.load(cache_item, 'PNG')#m
+			tile.load(cache_item, 'PNG')
 			return tile
 		else:
 			return None
+		
+	def use_approximated_tile(self, x, y):
+		tile = self.find_in_approx_cache(x, y, self.zoom)
+		if tile == None:
+			tile = self.approximate_tile(x, y, self.zoom)
+			self.insert_tile_to_approx_cache(tile, x, y, self.zoom)
+		return tile		
 
 	def insert_tile_to_ram_cache(self, tile, x, y):
 		if y in self.tile_ram_cache:
 			self.tile_ram_cache[y][x] = tile
 		else:
 			self.tile_ram_cache[y] = {x:tile}
+			
+	def insert_tile_to_approx_cache(self, tile, x, y, z):
+		if y in self.tile_approx_cache:
+			self.tile_approx_cache[y][x] = tile
+		else:
+			self.tile_approx_cache[y] = {x:tile}
 
 	def tiles_not_in_cache(self, visible_tile_range):
 		tiles = []
@@ -138,6 +161,15 @@ class layer(layers.layer_interface):
 	def find_in_disk_cache(self, x, y, z):
 		url = QtCore.QUrl(self.construct_tile_url(x, y, z))
 		return self.tile_disk_cache.data(url)
+	
+	def find_in_approx_cache(self, x, y, z):
+		if z != self.zoom:
+			return None
+		row = self.tile_approx_cache.get(y)
+		if row:
+			return row.get(x)
+		else:
+			return None
 
 	def visible_tiles(self):
 		w,h = self.parent.window_size()
@@ -171,6 +203,9 @@ class layer(layers.layer_interface):
 		return tiles
 
 	def tile_request(self, x, y, z):
+		#if z > 4:  # testing only
+		#	return
+		
 		if (x, y, z) in self.requested_tiles:
 			return
 		url = QtCore.QUrl(self.construct_tile_url(x, y, z))
@@ -203,13 +238,26 @@ class layer(layers.layer_interface):
 
 		self.change_map()
 
-
 	def construct_tile_url(self, x, y, z):		
 		return 'http://tile.openstreetmap.org/%d/%d/%d.png' % (z, x, y)
 
 	def clear_tile_ram_cache(self):
 		self.tile_ram_cache = {}
+		
+	def clear_tile_approx_cache(self):
+		self.tile_approx_cache = {}
 
+	def approximate_tile(self, x, y, z):
+		# prehladaj disk cache pre dlazdicu na x,y na leveli z-1
+		x_down, y_down, z_down = (x/2, y/2, z-1)
+		tile = self.load_tile_from_disk_cache(x_down, y_down, z_down)
+		if tile:
+			x_corner, y_corner = (x%2, y%2)
+			tile = tile.copy(256/2*x_corner, 256/2*y_corner, 256/2, 256/2)
+			tile = tile.scaled(256, 256)
+			return tile
+		return None
+	
 
 def is_intersection_empty(r1, r2):
 	a1,b1 = r1;	a2,b2 = r2
