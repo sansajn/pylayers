@@ -20,7 +20,7 @@ class layer(layer_interface.layer):
 
 		self.tile_disk_cache = QtNetwork.QNetworkDiskCache()
 		self.tile_disk_cache.setCacheDirectory(
-			os.path.join(temp_directory(), 'tiles'))
+			os.path.join(temp_directory(), 'osm_tiles'))
 		self.tile_disk_cache.setMaximumCacheSize(500*2**20)
 
 		self.network = QtNetwork.QNetworkAccessManager()
@@ -98,6 +98,7 @@ class layer(layer_interface.layer):
 				if tile == None:
 					tile = self.load_tile_from_disk_cache(j, i, self.zoom)
 					if tile:
+						tile = QtGui.QPixmap.fromImage(tile)
 						self.insert_tile_to_ram_cache(tile, j, i)
 					else:
 						tile = self.use_approximated_tile(j, i)
@@ -106,8 +107,8 @@ class layer(layer_interface.layer):
 
 	def draw_tile(self, tile, x, y, painter):
 		x0,y0 = self.parent.view_offset
-		painter.drawImage(QtCore.QPoint(x*256+x0, y*256+y0), tile)
-
+		painter.drawPixmap(QtCore.QPoint(x*256+x0, y*256+y0), tile)
+		
 	def load_tile_from_ram_cache(self, x, y):
 		return self.find_in_ram_cache(x, y, self.zoom)
 
@@ -203,9 +204,6 @@ class layer(layer_interface.layer):
 		return tiles
 
 	def tile_request(self, x, y, z):
-		#if z > 4:  # testing only
-		#	return
-		
 		if (x, y, z) in self.requested_tiles:
 			return
 		url = QtCore.QUrl(self.construct_tile_url(x, y, z))
@@ -259,7 +257,7 @@ class layer(layer_interface.layer):
 				w = 256/divider
 				tile = tile.copy(w*x_corner, w*y_corner, w, w)
 				tile = tile.scaled(256, 256)
-				return tile			
+				return QtGui.QPixmap.fromImage(tile)
 			z_down -= 1
 		return None
 	
