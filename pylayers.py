@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 # \author Adam Hlavatovič
-# todo: zoom over 17
 import sys, math, time, os
 from PyQt4 import QtCore, QtGui, QtNetwork
 #import path_layer
@@ -87,7 +86,7 @@ class Form(QtGui.QMainWindow):
 	
 
 	def zoom_event(self, step):
-		new_zoom = max(min(self.zoom+step, self.MAX_ZOOM), 0)
+		new_zoom = max(self.zoom+step, 0)  # zdola ohranicene
 		print '\n#zoom_event(): zoom:%d' % (new_zoom, )
 		self.set_zoom(new_zoom)
 		self.update_window_title()

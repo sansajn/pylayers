@@ -4,6 +4,8 @@ import time
 from PyQt4 import QtCore, QtGui
 import layer_interface, gps, qtree
 
+drawable_settings = {'costs':True, 'graph':True}
+
 
 class layer(layer_interface.layer):
 	def __init__(self, widget):
@@ -23,6 +25,7 @@ class layer(layer_interface.layer):
 		self.qtree_bwd = None
 		self.qtree_avoids = None
 		self.qtree_path = None
+		self.first_zoom = True
 		
 		pen = QtGui.QPen()
 		pen.setColor(QtCore.Qt.red)
@@ -77,25 +80,26 @@ class layer(layer_interface.layer):
 	def paint(self, painter, view_offset):
 		t = time.clock()
 		
-		old_pen = painter.pen()
-		
-		painter.setPen(QtCore.Qt.black)
-		self.paint_edges(self.drawable_fwd, self.qtree_fwd, view_offset, painter, 
-			'forward')
-		
-		painter.setPen(QtCore.Qt.gray)
-		self.paint_edges(self.drawable_bwd, self.qtree_bwd, view_offset, painter, 
-			'backward')
-		
-		painter.setPen(self.pen_avoids)
-		self.paint_edges(self.drawable_avoids, self.qtree_avoids, view_offset, 
-			painter, 'avoids')
-		
-		painter.setPen(self.pen_path)
-		self.paint_edges(self.drawable_path, self.qtree_path, view_offset,
-			painter, 'path')
-		
-		painter.setPen(old_pen)
+		if drawable_settings['graph']:
+			old_pen = painter.pen()
+			
+			painter.setPen(QtCore.Qt.black)
+			self.paint_edges(self.drawable_fwd, self.qtree_fwd, view_offset, painter, 
+				'forward')
+			
+			painter.setPen(QtCore.Qt.gray)
+			self.paint_edges(self.drawable_bwd, self.qtree_bwd, view_offset, painter, 
+				'backward')
+			
+			painter.setPen(self.pen_avoids)
+			self.paint_edges(self.drawable_avoids, self.qtree_avoids, view_offset, 
+				painter, 'avoids')
+			
+			painter.setPen(self.pen_path)
+			self.paint_edges(self.drawable_path, self.qtree_path, view_offset,
+				painter, 'path')
+			
+			painter.setPen(old_pen)
 						
 		dt = time.clock() - t
 		self.debug('  #edge_layer.paint(): %f s' % (dt, ))
@@ -111,6 +115,12 @@ class layer(layer_interface.layer):
 
 	def mouse_press_event(self, event):
 		pass
+	
+	def key_press_event(self, event):
+		if event.key() == QtCore.Qt.Key_C:
+			drawable_settings['costs'] = not drawable_settings['costs']
+		if event.key() == QtCore.Qt.Key_G:
+			drawable_settings['graph'] = not drawable_settings['graph']
 	#@}
 	
 	def paint_edges(self, drawable, edge_qtree, view_offset, painter, 
@@ -158,8 +168,9 @@ def to_drawable_edges(edges, costs, zoom):
 		t = e[1]
 		p1 = gps.mercator.gps2xy(s, zoom)
 		p2 = gps.mercator.gps2xy(t, zoom)
-		cost = costs[e[2]]
-		drawable_edges.append(edge(p1, p2, cost))
+		id = e[2]
+		cost = costs[id]		
+		drawable_edges.append(edge(p1, p2, cost, id))
 	return drawable_edges
 
 
@@ -175,6 +186,8 @@ def process_raw_edges(edges):
 		if s_gps.is_valid() and t_gps.is_valid():
 			d.append((s_gps, t_gps, cost))
 			r = r.unite(to_rect(s_gps, t_gps))
+		else:
+			print('edge ignored')
 	# zvecsim ju o 10%, aby do nej padli vsetky body
 	r.adjust(-r.width()/20.0, -r.height()/20.0, r.width()/20.0, r.height()/20.0)
 	return (d, r)
@@ -205,9 +218,10 @@ class vertex(drawable):
 	#@}
 	
 class edge(drawable):
-	def __init__(self, p1, p2, cost):
+	def __init__(self, p1, p2, cost, edge_id):
 		self.set_position(p1, p2)
-		self.cost = cost		
+		self.cost = cost
+		self.id = edge_id
 		
 	def set_position(self, p1, p2):
 		self.p1 = QtCore.QPoint(p1[0], p1[1])
@@ -223,9 +237,10 @@ class edge(drawable):
 		painter.drawEllipse(QtCore.QPointF(t[0], t[1]), 2, 2)
 		
 		# text
-		x_len = t[0] - s[0]
-		y_len = t[1] - s[1]		
-		center = (x_len/2.0 + s[0], y_len/2.0 + s[1])
-		painter.drawText(center[0], center[1],	'%f' % (self.cost, )) 
+		if drawable_settings['costs']:
+			x_len = t[0] - s[0]
+			y_len = t[1] - s[1]		
+			center = (x_len/2.0 + s[0], y_len/2.0 + s[1])
+			painter.drawText(center[0], center[1],	'%g [%d]' % (self.cost, self.id)) 
 	#@}
 

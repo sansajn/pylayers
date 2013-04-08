@@ -9,6 +9,7 @@ import layer_interface, gps
 class layer(layer_interface.layer):
 	def __init__(self, parent):
 		layer_interface.layer.__init__(self)
+		self.MAX_OSM_ZOOM = 18
 		self.parent = parent
 		self.name = 'open-street-map'
 		self.category = 'map'
@@ -66,10 +67,13 @@ class layer(layer_interface.layer):
 			self.hide = not self.hide
 	#@}
 
+
+	#! Public interface
+	#@{
 	def zoom_to(self, georect):
 		w,h = self.parent.window_size()
 		zoom = 0
-		for zoom in range(0, self.parent.MAX_ZOOM):
+		for zoom in range(0, self.MAX_OSM_ZOOM):
 			sw = gps.mercator.gps2xy(georect.sw, zoom)
 			ne = gps.mercator.gps2xy(georect.ne, zoom)
 			if abs(ne[0] - sw[0]) > w or abs(ne[1] - sw[1]) > h:
@@ -77,6 +81,8 @@ class layer(layer_interface.layer):
 		zoom = max(0, zoom-1)
 		self.parent.set_zoom(zoom)
 		self.parent.center_to(gps.mercator.gps2xy(georect.center(), zoom))
+	#@}
+	
 		
 	def change_map(self):
 		self.debug('\n#osm_layer.change_map()')
@@ -204,8 +210,8 @@ class layer(layer_interface.layer):
 		return tiles
 
 	def tile_request(self, x, y, z):
-		if (x, y, z) in self.requested_tiles:
-			return
+		if z > self.MAX_OSM_ZOOM or (x, y, z) in self.requested_tiles:
+			return		
 		url = QtCore.QUrl(self.construct_tile_url(x, y, z))
 		request = QtNetwork.QNetworkRequest()		
 		request.setUrl(url)
@@ -258,6 +264,9 @@ class layer(layer_interface.layer):
 				tile = tile.copy(w*x_corner, w*y_corner, w, w)
 				tile = tile.scaled(256, 256)
 				return QtGui.QPixmap.fromImage(tile)
+			else:
+				print 'nepodarilo sa najst dlazdicu na x:%d, y:%d, z:%d <- x:%d, y:%d, z:%d' % (
+					x_down, y_down, z_down, x, y, z)
 			z_down -= 1
 		return None
 	
