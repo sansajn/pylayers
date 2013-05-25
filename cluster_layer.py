@@ -4,7 +4,7 @@
 
 import time
 from PyQt4 import QtCore, QtGui
-import gps, layers, qtree
+import gps, layers, geo_helper, geometry
 
 
 class layer(layers.layer_interface):
@@ -49,6 +49,12 @@ class layer(layers.layer_interface):
 		self.backward = process_raw_edges([e for e in backward if e not in path])
 		self.path = process_raw_edges([e for e in path if e not in avoids])
 		self.avoids = process_raw_edges([e for e in avoids])
+		
+		rect = self.forward[1]
+		rect.unite(self.backward[1])
+		rect.unite(self.path[1])
+		rect.unite(self.avoids[1])		
+		geo_helper.layer(self.window).zoom_to(rect) 
 		
 	def paint(self, painter, view_offset):
 		t = time.clock()
@@ -128,14 +134,16 @@ def to_drawable_edges(edges, zoom):
 def process_raw_edges(edges):
 	'Vrati zoznam hran a najmensi stvorec obsahujuci vsetky hrany.'
 	d = []
+	r = geometry.rectangle((0,0), (0,0))
 	for e in edges:
 		s = e[0]
 		t = e[1]
 		s_gps = gps.gpspos(s[0]/float(1e5), s[1]/float(1e5))
 		t_gps = gps.gpspos(t[0]/float(1e5), t[1]/float(1e5))
-		if s_gps.is_valid() and t_gps.is_valid():
+		if s_gps.is_valid() and t_gps.is_valid():			
 			d.append((s_gps, t_gps))
-	return d
+			r.unite(geometry.rectangle(s_gps, t_gps))
+	return (d, r)
 
 def to_rect(s_gps, t_gps):
 	x0 = (min(s_gps.lat, t_gps.lat), min(s_gps.lon, t_gps.lon))

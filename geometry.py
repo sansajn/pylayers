@@ -5,7 +5,7 @@
 r'''Bod je definovany ako akykolvek objekt p, pre ktory platia vyrazy 
 p[0], p[1] a v pripade bodu v priestore aj p[2].'''
 
-class rectangle:
+class rectangle:	
 	r'Stvorec je definovany lavym-dolnym bodom a a pravym-hornym bodom b.'
 	def __init__(self, p1, p2):
 		self._set(p1, p2)
@@ -35,6 +35,10 @@ class rectangle:
 		r'Vrati pravdu ak je prienik zo stvorcom r neprazdny.'
 		return not (abs(r.b[0] - self.a[0]) > self.width() + r.width() 
 			or abs(self.b[1] - r.a[1]) > self.height() + r.height())
+	
+	def subset(self, r):
+		r'Vrati true ak je stvorec podmnozinou r.'
+		return r.contains(self.a) and r.contains(self.b)
 	
 	def unite(self, r):
 		r'Zjednotenie so stvorcom r.'
@@ -99,6 +103,10 @@ class rectangle:
 	
 	def __eq__(self, other):
 		return self.a == other.a and self.b == other.b
+
+
+def empty_rectangle():
+	return rectangle((None, None), (None, None))
 
 
 if __name__ == '__main__':  # simple tests

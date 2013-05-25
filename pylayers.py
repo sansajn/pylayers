@@ -82,6 +82,11 @@ class Form(QtGui.QMainWindow):
 	def window_size(self):
 		r = self.geometry()
 		return (r.width(), r.height())
+	
+	def visible_rect(self):
+		r = self.geometry()
+		return (self.to_world_coordinates((0, 0)), 
+			self.to_world_coordinates((r.width(), r.height())))
 	#}@ Public interface
 	
 

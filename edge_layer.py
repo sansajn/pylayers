@@ -2,9 +2,9 @@
 # \author Adam Hlavatovič
 import time
 from PyQt4 import QtCore, QtGui
-import layer_interface, gps, qtree
+import layer_interface, gps, qtree, geometry
 
-drawable_settings = {'costs':True, 'graph':True}
+drawable_settings = {'costs':False, 'graph':True}
 
 
 class layer(layer_interface.layer):
@@ -26,6 +26,11 @@ class layer(layer_interface.layer):
 		self.qtree_avoids = None
 		self.qtree_path = None
 		self.first_zoom = True
+		
+		# pokial je sucastna obrazovka vecsia, rovna predchadzajucej 
+		# a predchadzajuca je podmnozinou sucastnej, potom uz poznam indexi hran
+		self.last_drawed_edge_ids = []
+		self.last_drawed_edge_rect = geometry.empty_rectangle()
 		
 		pen = QtGui.QPen()
 		pen.setColor(QtCore.Qt.red)
@@ -86,7 +91,7 @@ class layer(layer_interface.layer):
 			painter.setPen(QtCore.Qt.black)
 			self.paint_edges(self.drawable_fwd, self.qtree_fwd, view_offset, painter, 
 				'forward')
-			
+						
 			painter.setPen(QtCore.Qt.gray)
 			self.paint_edges(self.drawable_bwd, self.qtree_bwd, view_offset, painter, 
 				'backward')
@@ -125,13 +130,32 @@ class layer(layer_interface.layer):
 	
 	def paint_edges(self, drawable, edge_qtree, view_offset, painter, 
 		string_id = ''):
-		visible_edges_idxs = edge_qtree.lookup( # najdi viditelne objekty
-			self.view_geo_rect(view_offset, self.zoom))
+		
+		# najdi viditelne objekty
+		r = self.widget.visible_rect()
+		visible_rect = geometry.rectangle(r[0], r[1])
+		if self.last_drawed_edge_rect.subset(visible_rect):
+			visible_edges_idxs = self.last_drawed_edge_ids
+		else:		
+			visible_edges_idxs = edge_qtree.lookup( 
+				self.view_geo_rect(view_offset, self.zoom))
+		
+		close_edges = 0		
+		edge_rect = geometry.empty_rectangle()
+		
 		for idx in visible_edges_idxs:
 			e = drawable[idx]
-			e.paint(view_offset, painter)
+			if not e.close:
+				edge_rect.unite(e.bounds())
+				e.paint(view_offset, painter)
+			else:
+				close_edges += 1
+				
+		self.last_drawed_edge_rect = edge_rect
+		self.last_drawed_edge_ids = visible_edges_idxs
+				
 		self.debug('  #paint_edges: painted %d/%d %s edges' % (
-			len(visible_edges_idxs), len(drawable), string_id))
+			len(visible_edges_idxs)-close_edges, len(drawable), string_id))
 	
 	def prepare_drawable_data(self):
 		# edges
@@ -200,34 +224,30 @@ def to_rect(s_gps, t_gps):
 	
 
 class drawable:
-	def paint(self):
+	def bounds(self):
 		pass
 	
-class vertex(drawable):
-	def __init__(self, xypos):
-		self.r = 8
-		self.set_position(xypos)
-	
-	def set_position(self, xypos):
-		self.xypos = QtCore.QPoint(xypos[0], xypos[1])
-	
-	#@{ drawable interface implementation
-	def paint(self, view_offset, painter):
-		x0,y0 = view_offset
-		painter.drawEllipse(self.xypos.x()+x0, self.xypos.y()+y0, self.r, self.r)		
-	#@}
+	def paint(self):
+		pass
+
 	
 class edge(drawable):
 	def __init__(self, p1, p2, cost, edge_id):
 		self.set_position(p1, p2)
 		self.cost = cost
-		self.id = edge_id
+		self.id = edge_id		
 		
 	def set_position(self, p1, p2):
 		self.p1 = QtCore.QPoint(p1[0], p1[1])
 		self.p2 = QtCore.QPoint(p2[0], p2[1])
+		self.close = (
+			(self.p2.x() - self.p1.x())**2 + (self.p2.y() - self.p1.y())**2) < 4
 			
 	#@{ drawable interface implementation
+	def bounds(self):
+		return geometry.rectangle((self.p1.x(), self.p1.y()), 
+			(self.p2.x(), self.p2.y()))
+		
 	def paint(self, view_offset, painter):
 		x0,y0 = view_offset
 		s = (self.p1.x()+x0, self.p1.y()+y0)
