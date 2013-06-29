@@ -10,6 +10,7 @@ import edge_layer
 #import osmgraph_layer 
 #import cluster_layer
 #import path2_layer
+import simple_layer
 
 
 def main(args):
@@ -194,6 +195,10 @@ class Form(QtGui.QMainWindow):
 			layer = cluster_layer.layer(self)
 			layer.create(str(fname))
 			self.add_layer(layer)
+		elif is_simple_file(str(fname)):
+			layer = simple_layer.layer(self)
+			layer.create(str(fname))
+			self.add_layer(layer)
 		else:
 			layer = transport_layer.layer(self)
 			layer.create(fname)
@@ -221,6 +226,9 @@ def is_cluster_file(fname):
 
 def is_osmgraph_file(fname):
 	return os.path.splitext(fname)[1] == '.grp'
+
+def is_simple_file(fname):
+	return os.path.splitext(fname)[1] == '.simple'
 
 def open_file_dialog(parent):
 	return QtGui.QFileDialog.getOpenFileName(parent, 'Open dump file ...')
