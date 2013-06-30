@@ -58,10 +58,13 @@ class quad_node:
 		else:
 			elems = []
 			if self._leaf():
-				for p in self._data:
-					if bounds.contains(p[0]):
-						elems.append(p[1])
-				return elems
+				if bounds.subset(self.bounds()):
+					elems.extend([p[1] for p in self._data])
+				else:
+					for p in self._data:
+						if bounds.contains(p[0]):
+							elems.append(p[1])
+					return elems
 			else:
 				for ch in self._children:
 					elems.extend(ch.lookup(bounds))
@@ -105,7 +108,7 @@ class quad_node:
 		for d in data:
 			self.insert(d[0], d[1])
 		self._data = []
-
+		
 	def _leaf(self):
 		return len(self._children) == 0
 
@@ -133,4 +136,10 @@ class boundary:
 		r = bounds
 		return not (abs(r.b[0] - self.a[0]) > (self.width() + r.width())) or (
 			abs(r.b[1] - self.a[1]) > (self.height() + r.height()))
+		
+	def subset(self, bounds):
+		'True ak bounds je podmnozina self-boundary.'
+		r = bounds
+		return r.a[0] >= self.a[0] and r.a[1] >= self.a[1] and \
+			r.b[0] <= self.b[0] and r.b[1] <= self.b[1]
 

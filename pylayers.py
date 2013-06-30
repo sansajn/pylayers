@@ -207,8 +207,6 @@ class Form(QtGui.QMainWindow):
 		self.update()
 
 
-
-
 def is_vof_file(fname):
 	return os.path.splitext(fname)[1] == '.vof'
 

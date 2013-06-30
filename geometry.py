@@ -2,12 +2,65 @@
 # Geometry routines.
 # \author Adam Hlavatovič
 
-r'''Bod je definovany ako akykolvek objekt p, pre ktory platia vyrazy 
+r'''Bod je definovany ako ľubovolný objekt p, pre ktory platia vyrazy 
 p[0], p[1] a v pripade bodu v priestore aj p[2].'''
 
+class line_segment:
+	r'Usecka je definovana dvojicou bodou a, b.'
+	def __init__(self, a, b):
+		self.a = a
+		self.b = b		
+
+	def contains(self, x):
+		r'''Vrati pravdu ak x lezi na usecke.
+		Ak x lezi na priamke urcenej bodmi a, b, potom na zaklade podobnosti 
+		trojuholnikou plati
+			(x_x - a_x)/(b_x - a_x) = (x_y - a_y)/(b_y - a_y)   (1)
+		dalej ak x lezi na usecke urcenej bodmi a, b potom prava (lava) strana 
+		rovnice (1) bude v intervale <0, 1> (parametricke vyjadrenie priamky).'''
+		a, b = self.a, self.b
+		px = (x[0] - a[0])/float(b[0] - a[0])
+		py = (x[1] - a[1])/float(b[1] - a[1])
+		return px == py and 0.0 <= px <= 1.0	
+
+	def intersects(self, l):
+		r'Vrati pravdu ak l pretina usecku.'
+		a1 = (self.b[1] - self.a[1])/float(self.b[0] - self.a[0])
+		a2 = (l.b[1] - l.a[1])/float(l.b[0] - l.a[0])
+		b1 = self.a[1] - a1*self.a[0]
+		b2 = l.a[1] - a2*l.a[0]
+		if a1 == a2:
+			return b1 == b2
+		else:
+			x = (b2-b1)/(a1-a2)  # v tomto bode sa usecky pretnu
+			return self.a[0] <= x <= self.b[0]
+
+	def intersect(self, l):
+		r'Vrati bod v ktorom l pretina usecku.'		
+		a1 = (self.b[1] - self.a[1])/float(self.b[0] - self.a[0])
+		a2 = (l.b[1] - l.a[1])/float(l.b[0] - l.a[0])
+		b1 = self.a[1] - a1*self.a[0]
+		b2 = l.a[1] - a2*l.a[0]
+
+		if a1 == a2:
+			# zatial ignorujem tuto moznost
+			return (None, None)
+		else:
+			x = (b2-b1)/(a1-a2)  # v tomto bode sa usecky pretnu
+			if self.a[0] <= x <= self.b[0]:
+				y = a1*x+b1
+				return (x,y)
+			else:
+				return (None, None)
+
+	def subsegment(self, l):
+		r'Vrati pravdu ak je l sucastou usecky.'
+		pass
+	
+	
 class rectangle:
 	r'Stvorec je definovany lavym-dolnym bodom a a pravym-hornym bodom b.'
-	def __init__(self, p1, p2):
+	def __init__(self, p1=(None, None), p2=(None, None)):
 		self._set(p1, p2)
 		
 	def width(self):
@@ -29,7 +82,7 @@ class rectangle:
 	
 	def contains(self, p):
 		r'Vrati pravdu ak je bod p ohraniceny stvorcom.'
-		return self.a[0] <= p[0] <= self.b[0] and self.a[1] <= p[1] <= self.b[1]		
+		return self.a[0] <= p[0] <= self.b[0] and self.a[1] <= p[1] <= self.b[1]
 	
 	def intersects(self, r):
 		r'Vrati pravdu ak je prienik zo stvorcom r neprazdny.'
@@ -87,13 +140,18 @@ class rectangle:
 		r = rectangle(self.a, self.b)
 		r.expand(p)
 		return r
+	
+	def subset(self, r):
+		r'True ak r je podmnozina stvorca.'
+		return r.a[0] >= self.a[0] and r.a[1] >= self.a[1] and \
+			r.b[0] <= self.b[0] and r.b[1] <= self.b[1]
 		
 	def _intersect(self, r1, r2):
 		p1 = (max(r1.a[0], r2.a[0]), max(r1.a[1], r2.a[1]))
 		p2 = (min(r1.b[0], r2.b[0]), min(r1.b[1], r2.b[1]))
 		return (p1, p2)
 	
-	def _set(self, p1, p2):
+	def _set(self, p1, p2):		
 		self.a = [min(p1[0], p2[0]), min(p1[1], p2[1])]
 		self.b = [max(p1[0], p2[0]), max(p1[1], p2[1])]
 	
@@ -101,36 +159,58 @@ class rectangle:
 		return self.a == other.a and self.b == other.b
 
 
-if __name__ == '__main__':  # simple tests
-	r = rectangle((5, 0), (15, 10))
-	s = rectangle((8, 8), (15, 18))
-	t = rectangle((20, 20), (30, 25))
-	
-	print('width() %s' % ('passed' if r.width() == 10 else 'failed'))
-	print('height() %s' % ('passed' if r.height() == 10 else 'failed'))
-	print('empty() %s' % ('passed' if r.empty() == False else 'failed'))
-	print('center() %s' % ('passed' if r.center() == (10, 5) else 'failed'))
-	print('contains() %s' % ('passed' if r.contains((8, 8)) == True 
-		and r.contains((15, 15)) == False else 'failed'))
-	print('intersects() %s' % ('passed' if r.intersects(s) == True 
-		and r.intersects(t) == False else 'failed'))
+class polygon:
+	def __init__(self):
+		self.vertices = []
+
+	def append_vertex(self, v):
+		self.vertices.append(v)
+
+	def insert_vertex(self, pos, v):
+		pass
+
+	def insert_vertex_shortest(self, v):
+		r'''Do polygónu vloží vrchol v, na takú pozíciu, že obvod polygónu zostane
+		inimálny.''' 
+		pass
+
+	def contains(self, p):
+		r'''V smere x-ovej osi vytvor úsečku, tak aby bol jej koniec mimo
+		polygonu. Potom spočítaj počet pretnutí úsečky a polygónu. Ak je nepárny
+		bod, bod leží v polygóne, inak mimo.'''
+		a = p
+
+		by = a[1]
+
+		bx = a[0]
+		for v in self.vertices:
+			bx = max(bx, v[0]) + 1
+
+		line = line_segment(a, (bx, by))
 		
-	print('intersect() %s' % ('passed' 
-		if r.intersect_copy(s) == rectangle((8,8), (15,10)) 
-			and r.intersect_copy(t) == rectangle((None,None), (None,None)) 
-		else 'failed'))
-	
-	print('unite() %s' % ('passed' 
-		if r.unite_copy(s) == rectangle((5, 0), (15, 18)) else 'failed'))
-	
-	print('expand() %s' % ('passed' 
-		if s.expand_copy((-2, 30)) == rectangle((-2, 8), (15, 30)) else 'failed'))
-	
-	print('adjust() %s' % ('passed' 
-		if r.adjust_copy(5, 3, 10, 10) == rectangle((10, 3), (30, 23)) else 'failed'))
-	
-	
-	
+		ncrossings = 0
+
+		i = 1
+		while i < len(self.vertices):
+			poly_line = line_segment(self.vertices[i-1], self.vertices[i])
+			if line.intersect(poly_line):
+				ncrossings += 1
+			i += 1
+
+		# closing edge
+		poly_line = line_segment(self.vertices[-1], self.vertices[0])
+		if line.intersect(poly_line):
+			ncrossings += 1
+
+		return ncrossings % 2
+
+	def area(self):
+		r'Vráti plochu polygónu.'
+		pass
+
+
+
+
 	
 	
 	

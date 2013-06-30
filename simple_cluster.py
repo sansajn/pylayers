@@ -29,12 +29,51 @@ class layer(layer_interface.layer):
 		
 		t = time.clock()
 		
-		drawable = self.edges.lookup(self.view_geo_rect(view_offset, self.zoom))		
-		for d in drawable:
-			d.paint(view_offset, painter)
+		view_bounds = self.view_geo_rect(view_offset, self.zoom) 
+		leafs = self.edges.leafs(view_bounds)
+		
+		nleafs = 0
+		nedges = 0
+		
+		for leaf in leafs:
+			bounds = leaf.bounds()
+			if self.too_small(bounds, self.zoom):
+				self.paint_cluster(bounds, self.zoom, view_offset, painter)
+				nleafs += 1
+			else:
+				drawable = leaf.data()
+				if view_bounds.subset(leaf.bounds()):
+					for d in drawable:
+						d[1].paint(view_offset, painter)
+						nedges += 1
+				else:
+					for d in drawable:
+						if view_bounds.contains(d[0]):
+							d[1].paint(view_offset, painter)
+							nedges += 1
 			
 		dt = time.clock() - t
-		self.debug('  #lookup-v-strome: %f s (%d hran)' % (dt, len(drawable)))
+		self.debug('  #lookup-v-strome: %f s (edges:%d, leafs:%d)' % (
+			dt, nedges, nleafs))
+
+	def valid_point(self, gps):
+		return gps[0] >= -180 and gps[0] <= 180 and gps[1] >= -180 and gps[1] <= 180 
+
+	def too_small(self, bounds, zoom):
+		a_xy = gps.mercator.gps2xy(gps.gpspos(bounds.a[1], bounds.a[0]), zoom)
+		b_xy = gps.mercator.gps2xy(gps.gpspos(bounds.b[1], bounds.b[0]), zoom)
+		w = abs(b_xy[0] - a_xy[0])
+		h = abs(b_xy[1] - a_xy[1])
+		return w < 10 or h < 10
+	
+	def paint_cluster(self, bounds, zoom, view_offset, painter):
+		painter.setPen(QtCore.Qt.red)
+		x0,y0 = view_offset
+		p = gps.gpspos(
+			bounds.a[0] + bounds.width()/2.0, bounds.a[1] + bounds.height()/2.0)
+		p_xy = gps.mercator.gps2xy(p, zoom)
+		painter.drawEllipse(QtCore.QPointF(x0+p_xy[0], y0+p_xy[1]), 4, 4)
+		painter.setPen(QtCore.Qt.black)
 
 	def zoom_event(self, zoom):
 		self.zoom = zoom
@@ -78,8 +117,8 @@ def to_drawable_edge(e, zoom):
 
 
 def process_raw_edges(edges):
-	d = []	
-	r = geometry.rectangle(edges[0][0], edges[0][1])
+	d = []		
+	r = to_gps_rect(edges[0][0], edges[0][1])
 	for e in edges:
 		s = e[0]
 		t = e[1]
@@ -94,6 +133,12 @@ def process_raw_edges(edges):
 			print('edge ignored')
 	return (d, r)
 		
+def to_gps_rect(a, b):
+	a = (a[0]/float(1e5), a[1]/float(1e5))
+	b = (b[0]/float(1e5), b[1]/float(1e5))	
+	return geometry.rectangle(a, b)
+	
+	
 def to_rect(s_gps, t_gps):
 	x0 = (min(s_gps.lat, t_gps.lat), min(s_gps.lon, t_gps.lon))
 	r = QtCore.QRectF(x0[0], x0[1], abs(t_gps.lat - s_gps.lat), 
