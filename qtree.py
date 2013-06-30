@@ -1,68 +1,136 @@
 # -*- coding: utf-8 -*-
-# Rekurzívna implementácia 'quad tree' štruktúry.
-from PyQt4 import QtCore
 
+class qtree:
+	r'rekurzivna implementacia quad-tree'	
+	def __init__(self, bounds):
+		self._size = 0
+		self._root = quad_node(bounds, 0)
 
-class quad_tree:
-	def __init__(self, area):
-		r'''\param area Výrazy area.x(), area.y(), area.width(),	area.heigth(), 
-			area.contains() musia byť platne.'''
-		self.size = 0
-		self.root = quad_node(area)
+	def insert(self, point, value):
+		self._size += 1
+		self._root.insert(point, value)
 
-	def insert(self, xypos, value):
-		r' \param xypos dvojica koordinátou určujúca pozíciu hodnoty v strome.'
-		self.size += 1
-		self.root.insert(xypos, value)
-
-	def lookup(self, area):
-		return self.root.lookup(area)
+	def lookup(self, bounds):
+		return self._root.lookup(bounds)
+	
+	def leafs(self, bounds):
+		r'Vrati listy stromu.'
+		return self._root.leafs(bounds)
+	
+	def bounds(self):
+		return self._root.bounds()
 
 
 class quad_node:
-	MAX_NODE_ELEMS = 16
-	def __init__(self, area):
-		self.elems = []
-		self.children = []
-		self.area = area
+	NELEMS = 32
+	def __init__(self, bounds, level):
+		self._bounds = boundary(bounds.a, bounds.b)
+		self._children = []
+		self._data = []
+		self._level = level
 
-	def insert(self, xypos, value):
+	def insert(self, point, value):
+		if self._leaf():
+			if self._has_space():
+				self._data.append((point, value))
+				return
+			else:
+				self._subdivide()
 
-		assert self.contains(xypos), 'logic error: position not in area'
+		p = point
+		w,h = (self._bounds.width(), self._bounds.height())
+		x,y = self._bounds.a	
 
-		if len(self.elems) == quad_node.MAX_NODE_ELEMS:
-			if len(self.children) == 0:
-				self.subdivide()
-			for ch in self.children:
-				if ch.contains(xypos):
-					ch.insert(xypos, value)
-					return
-			raise Exception('error: lost data (%g, %g)!' % xypos)
-		else:
-			self.elems.append((xypos, value))
+		if p[0] >= x and p[0] <= x+w/2.0:  # 1 or 3
+			if p[1] >= y and p[1] <= y+h/2.0:
+				self._children[0].insert(point, value)
+			else:
+				self._children[2].insert(point, value)
+		else: # 2 or 4
+			if p[1] >= y and p[1] <= y+h/2.0:
+				self._children[1].insert(point, value)
+			else:
+				self._children[3].insert(point, value)
 
-	def lookup(self, area):
-		if not self.area.intersect(area):
+	def lookup(self, bounds):
+		if not self._bounds.intersect(bounds):
 			return []
 		else:
 			elems = []
-			for e in self.elems:
-				pos = e[0]
-				if area.contains(pos[0], pos[1]):
-					elems.append(e[1])
-			for ch in self.children:
-				elems.extend(ch.lookup(area))
-			return elems
+			if self._leaf():
+				for p in self._data:
+					if bounds.contains(p[0]):
+						elems.append(p[1])
+				return elems
+			else:
+				for ch in self._children:
+					elems.extend(ch.lookup(bounds))
+				return elems
 
-	def subdivide(self):
-		x,y = (self.area.x(), self.area.y())
-		w,h = (self.area.width(), self.area.height())
-		self.children.append(quad_node(QtCore.QRectF(x, y, w/2.0, h/2.0)))
-		self.children.append(quad_node(QtCore.QRectF(x+w/2.0, y, w/2.0, h/2.0)))
-		self.children.append(quad_node(QtCore.QRectF(x, y+h/2.0, w/2.0, h/2.0)))
-		self.children.append(quad_node(
-			QtCore.QRectF(x+w/2.0, y+h/2.0, w/2.0, h/2.0)))
+	def leafs(self, bounds):
+		if not self._bounds.intersect(boundary(bounds.a, bounds.b)):
+			return []
+		else:
+			if not self._leaf():
+				leafs = []
+				for ch in self._children:
+					leafs.extend(ch.leafs(bounds))
+				return leafs
+			else:
+				return [self]
+			
+	def bounds(self):
+		return self._bounds
+	
+	def level(self):
+		return self._level
+	
+	def data(self):
+		return self._data
 
-	def contains(self, xypos):
-		return self.area.contains(xypos[0], xypos[1])
+	def _subdivide(self):
+		x,y = self._bounds.a
+		w,h = (self._bounds.width(), self._bounds.height())
+		self._children.append(
+			quad_node(boundary((x, y), (x+w/2.0, y+h/2.0)), self._level+1))
+		self._children.append(
+			quad_node(boundary((x+w/2.0, y), (x+w, y+h/2.0)), self._level+1))
+		self._children.append(
+			quad_node(boundary((x, y+h/2.0), (x+w/2.0, y+h)), self._level+1))
+		self._children.append(
+			quad_node(boundary((x+w/2.0, y+h/2.0), (x+w, y+h)), self._level+1))
+
+		# preusporiadaj prvky
+		data = self._data				
+		for d in data:
+			self.insert(d[0], d[1])
+		self._data = []
+
+	def _leaf(self):
+		return len(self._children) == 0
+
+	def _has_space(self):
+		return len(self._data) < quad_node.NELEMS
+
+
+class boundary:
+	'''Hranica, štvorcová oblasť definovaná pravým-dolným a a
+	ľavím-horným b bodom.'''
+	def __init__(self, a, b):
+		self._set(a, b)
+
+	def _set(self, a, b):
+		self.a = ((min(a[0], b[0])), (min(a[1], b[1])))
+		self.b = ((max(a[0], b[0])), (max(a[1], b[1])))
+
+	def width(self):
+		return self.b[0] - self.a[0]
+	
+	def height(self):
+		return self.b[1] - self.a[1]
+
+	def intersect(self, bounds):
+		r = bounds
+		return not (abs(r.b[0] - self.a[0]) > (self.width() + r.width())) or (
+			abs(r.b[1] - self.a[1]) > (self.height() + r.height()))
 

@@ -10,7 +10,7 @@ import edge_layer
 #import osmgraph_layer 
 #import cluster_layer
 #import path2_layer
-import simple_layer
+import simple_cluster
 
 
 def main(args):
@@ -196,7 +196,7 @@ class Form(QtGui.QMainWindow):
 			layer.create(str(fname))
 			self.add_layer(layer)
 		elif is_simple_file(str(fname)):
-			layer = simple_layer.layer(self)
+			layer = simple_cluster.layer(self)
 			layer.create(str(fname))
 			self.add_layer(layer)
 		else:
