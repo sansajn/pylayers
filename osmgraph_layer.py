@@ -3,12 +3,12 @@
 # \author Adam Hlavatovič
 import sys, math, time, random
 from PyQt4 import QtCore, QtGui
-import layers, gps, qtree, osmgraph_file, osmgraph_graph, dijkstra
+import layer_interface, gps, qtree, osmgraph_file, osmgraph_graph, dijkstra
 
 
-class layer(layers.layer_interface):
+class layer(layer_interface.layer):
 	def __init__(self, parent):
-		layers.layer_interface.__init__(self, parent)
+		layer_interface.layer.__init__(self)
 		self.parent = parent
 		self.gfile = None
 		self.graph = None

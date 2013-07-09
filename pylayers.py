@@ -7,7 +7,7 @@ from PyQt4 import QtCore, QtGui, QtNetwork
 #import transport_layer 
 import osm_layer 
 import edge_layer
-#import osmgraph_layer 
+import osmgraph_layer
 #import cluster_layer
 #import path2_layer
 import simple_layer

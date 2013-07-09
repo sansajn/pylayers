@@ -147,9 +147,9 @@ class layer(layer_interface.layer):
 	def create_edge_qtree(self, data):
 		edges = data[0]
 		gps_rect = data[1]
-		edge_qtree = qtree.quad_tree(gps_rect)
+		edge_qtree = qtree.qtree(gps_rect)
 		for key, e in enumerate(edges):
-			edge_qtree.insert(e[0], key)
+			edge_qtree.insert(QtCore.QPointF(e[0].lat, e[0].lon), key)
 		return edge_qtree
 			
 	def view_geo_rect(self, view_offset, zoom):
@@ -169,7 +169,10 @@ def to_drawable_edges(edges, costs, zoom):
 		p1 = gps.mercator.gps2xy(s, zoom)
 		p2 = gps.mercator.gps2xy(t, zoom)
 		id = e[2]
-		cost = costs[id]		
+		if len(costs) != 0:
+			cost = costs[id]
+		else:
+			cost = 0	
 		drawable_edges.append(edge(p1, p2, cost, id))
 	return drawable_edges
 
@@ -180,15 +183,16 @@ def process_raw_edges(edges):
 	for e in edges:
 		s = e[0]
 		t = e[1]
-		cost = e[2]
+		id = e[2]
 		s_gps = gps.gpspos(s[0]/float(1e5), s[1]/float(1e5))
 		t_gps = gps.gpspos(t[0]/float(1e5), t[1]/float(1e5))
 		if s_gps.is_valid() and t_gps.is_valid():
-			d.append((s_gps, t_gps, cost))
+			d.append((s_gps, t_gps, id))
 			r = r.unite(to_rect(s_gps, t_gps))
 		else:
-			print('edge ignored')
-	# zvecsim ju o 10%, aby do nej padli vsetky body
+			print('edge %d:(%g, %g)->(%g, %g) ignored' % (
+				id, s_gps.lat, s_gps.lon, t_gps.lat, t_gps.lon))
+	# zvecsim ju, aby do nej padli vsetky body
 	r.adjust(-r.width()/20.0, -r.height()/20.0, r.width()/20.0, r.height()/20.0)
 	return (d, r)
 		
