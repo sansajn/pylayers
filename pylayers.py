@@ -114,7 +114,6 @@ class Form(QtGui.QMainWindow):
 			title += ' ~ %s' % (', '.join(self.files), )
 		self.setWindowTitle(title)
 		
-
 	#@{ Qt events
 	def paintEvent(self, e):
 		print '\n#paintEvent()'

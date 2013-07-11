@@ -32,8 +32,10 @@ class gpspos:
 			raise Exception('index overflow only 0 or 1 supported')
 
 class georect:
+	'''Georect je o 90deg otoceny stvorec v porovnani s vyznamom 
+	transformacie bodu na guly (lat, lon) na plochu.'''
 	def __init__(self, sw, ne):
-		r'Expressions sw.lat, sw.lon must be valid (same for ne).'
+		'Expressions sw.lat, sw.lon must be valid (same for ne).'
 		self.sw = sw
 		self.ne = ne
 
@@ -43,19 +45,9 @@ class georect:
 	def height(self):
 		return abs(self.ne.lon - self.sw.lon)
 
-	def x(self):
-		r'Vráti prvú súracnicu použitého systému.'
-		return self.sw.lat
-
-	def y(self):
-		r'Vráti druhú súradnicu použitého systému.'
-		return self.sw.lon
-
 	def center(self):
-		cpos = self.sw
-		cpos.lon += self.width()/2
-		cpos.lat += self.height()/2
-		return cpos
+		return gpspos(
+			self.sw.lat+self.width()/2, self.sw.lon+self.height()/2)
 
 	def contains(self, lat, lon):
 		sw, ne = (self.sw, self.ne)

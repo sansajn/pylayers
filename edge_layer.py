@@ -2,7 +2,7 @@
 # \author Adam Hlavatovič
 import time
 from PyQt4 import QtCore, QtGui
-import layer_interface, gps, qtree
+import layer_interface, gps, qtree, geo_helper, geometry, qt_helper
 
 drawable_settings = {'costs':True, 'graph':True}
 
@@ -77,6 +77,8 @@ class layer(layer_interface.layer):
 		
 		self.costs = costs
 		
+		self._zoom_to_data()
+		
 	def paint(self, painter, view_offset):
 		t = time.clock()
 		
@@ -100,6 +102,28 @@ class layer(layer_interface.layer):
 				painter, 'path')
 			
 			painter.setPen(old_pen)
+						
+						
+		print 'view_offset: %d, %d' % view_offset
+		
+		view_geo = self.view_geo_rect(view_offset, self.zoom)
+		center_geo = view_geo.center()
+		center_xy = gps.mercator.gps2xy(
+			gps.gpspos(center_geo.x(), center_geo.y()), self.zoom)
+		print 'view_offset center (from geo view): %d, %d' % center_xy
+		
+		data_geo = self.forward[1]
+		data_cen_geo = data_geo.center()
+		data_cen_xy = gps.mercator.gps2xy(
+			gps.gpspos(data_cen_geo.x(), data_cen_geo.y()), self.zoom)
+		print 'data-geo: %g, %g, %g, %g' % (
+			data_geo.bottomRight().x(), data_geo.bottomLeft().y(), 
+			data_geo.topLeft().x(), data_geo.topRight().y())
+		print 'data-geo center: %g, %g' % (data_cen_geo.x(), data_cen_geo.y())
+		print 'data center: %d, %d' % data_cen_xy
+		
+		
+		self._draw_geo_rect(self.forward[1], view_offset, painter)
 						
 		dt = time.clock() - t
 		self.debug('  #edge_layer.paint(): %f s' % (dt, ))
@@ -132,6 +156,10 @@ class layer(layer_interface.layer):
 			e.paint(view_offset, painter)
 		self.debug('  #paint_edges: painted %d/%d %s edges' % (
 			len(visible_edges_idxs), len(drawable), string_id))
+		
+		r = self.view_geo_rect(view_offset, self.zoom)
+		print 'view: %g,%g %g,%g' % (r.bottomLeft().x(), r.bottomLeft().y(), 
+			r.topRight().x(), r.topRight().y())
 	
 	def prepare_drawable_data(self):
 		# edges
@@ -159,8 +187,36 @@ class layer(layer_interface.layer):
 		sw = gps.mercator.xy2gps((xa, ya), zoom)
 		ne = gps.mercator.xy2gps((xa+w, ya-h), zoom)
 		return QtCore.QRectF(sw[0], sw[1], ne[0]-sw[0], ne[1]-sw[1])
+	
+	def _zoom_to_data(self):
+		helper = geo_helper.layer(self.widget)
+		helper.zoom_to(self._geo_bounds())
 		
-			
+	def _geo_bounds(self):
+		return qt_helper.qrect_to_grect(self.forward[1])
+		
+	def _draw_geo_rect(self, rect_geo, view_offset, painter):
+		x0,y0 = view_offset
+		sw_geo = rect_geo.bottomLeft()
+		ne_geo = rect_geo.topRight()
+		sw_xy = gps.mercator.gps2xy(gps.gpspos(sw_geo.x(), sw_geo.y()), self.zoom)
+		ne_xy = gps.mercator.gps2xy(gps.gpspos(ne_geo.x(), ne_geo.y()), self.zoom) 
+		
+		painter.drawRect(QtCore.QRectF(QtCore.QPointF(sw_xy[0]+x0, ne_xy[1]+y0), 
+			QtCore.QPoint(ne_xy[0]+x0, sw_xy[1]+y0)))
+		
+		bounds_geo = QtCore.QRectF(ne_geo, sw_geo)
+		center_geo = bounds_geo.center()
+		center_xy = self._geo_point_to_xy_drawable_point(center_geo, view_offset)
+		painter.drawEllipse(center_xy, 5, 5)
+		
+	def _geo_point_to_xy_drawable_point(self, point_geo, view_offset):
+		p = point_geo
+		x0,y0 = view_offset
+		p_xy = gps.mercator.gps2xy(gps.gpspos(p.x(), p.y()), self.zoom)
+		return QtCore.QPointF(p_xy[0]+x0, p_xy[1]+y0)
+		
+
 def to_drawable_edges(edges, costs, zoom):
 	drawable_edges = []	
 	for e in edges:
@@ -196,7 +252,7 @@ def process_raw_edges(edges):
 	r.adjust(-r.width()/20.0, -r.height()/20.0, r.width()/20.0, r.height()/20.0)
 	return (d, r)
 		
-def to_rect(s_gps, t_gps):
+def to_rect(s_gps, t_gps):	
 	x0 = (min(s_gps.lat, t_gps.lat), min(s_gps.lon, t_gps.lon))
 	r = QtCore.QRectF(x0[0], x0[1], abs(t_gps.lat - s_gps.lat), 
 		abs(t_gps.lon - s_gps.lon))
