@@ -12,6 +12,7 @@ import osmgraph_layer
 #import path2_layer
 import simple_layer
 
+import gps
 
 def main(args):
 	app = QtGui.QApplication(args)
@@ -75,6 +76,29 @@ class Form(QtGui.QMainWindow):
 
 		for layer in self.layers:
 			layer.zoom_event(self.zoom)
+			
+	def zoom_to_cursor(self, zoom):
+		if zoom == self.zoom:
+			return
+		w,h = self.window_size()
+		p = self.mapFromGlobal(QtGui.QCursor.pos())
+		coord_cursor = (p.x(), p.y())
+		coord_world = self.to_world_coordinates(coord_cursor)
+		
+		diff = zoom - self.zoom
+		if diff > 0:		
+			coord_world_after_zoom = (self.scale_distance(coord_world[0], 2*diff), 
+				self.scale_distance(coord_world[1], 2*diff))
+		else:
+			scale = max(2, 2*diff)
+			coord_world_after_zoom = (coord_world[0]/scale, coord_world[1]/scale)
+		
+		self.zoom = zoom
+		self.center_to((coord_world_after_zoom[0]+(w/2-coord_cursor[0]),
+			coord_world_after_zoom[1]+(h/2-coord_cursor[1])))
+		
+		for layer in self.layers:
+			layer.zoom_event(self.zoom)
 
 	def to_world_coordinates(self, xypos):
 		'Transform window coordinates to world coordinates.'
@@ -89,7 +113,8 @@ class Form(QtGui.QMainWindow):
 	def zoom_event(self, step):
 		new_zoom = max(self.zoom+step, 0)  # zdola ohranicene
 		print '\n#zoom_event(): zoom:%d' % (new_zoom, )
-		self.set_zoom(new_zoom)
+		#self.set_zoom(new_zoom)
+		self.zoom_to_cursor(new_zoom)
 		self.update_window_title()
 
 	def pan_event(self, diff):
