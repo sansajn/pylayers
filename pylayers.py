@@ -12,7 +12,6 @@ import osmgraph_layer
 #import path2_layer
 import simple_layer
 
-import gps
 
 def main(args):
 	app = QtGui.QApplication(args)
@@ -60,6 +59,7 @@ class Form(QtGui.QMainWindow):
 		self.view_offset = (-xypos[0]+w/2, -xypos[1]+h/2)
 
 	def set_zoom(self, zoom):
+		'sets zoom and moves to center'
 		if zoom == self.zoom:
 			return
 		diff = zoom - self.zoom
