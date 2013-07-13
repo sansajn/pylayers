@@ -22,6 +22,7 @@ class layer(layer_interface.layer):
 		self.vertex_qtree = None  # vrcholy grafu v priestorovom usporiadani
 		self.vertex_collections = None  # oblasti v ktorych je maximalne N vrcholou (v podstate listy vertex_qtree stromu).
 		self.vertex_collection_under_cursor = None
+		self.vertex_under_cursor = None
 		self.source_vertex = -1
 		self.target_vertex = -1
 		self.drawable_marks = []
@@ -86,6 +87,12 @@ class layer(layer_interface.layer):
 				
 			painter.restore()
 			
+		# vertex under cursor
+		if self.vertex_under_cursor:
+			g = self.graph
+			vprop = g.vertex_property(self.vertex_under_cursor)
+			self._draw_vertex_under_cursor(vprop.position, view_offset, painter)
+			
 		dt = time.clock() - t
 		self.debug('  #osmgraph_layer.paint(): %f s' % (dt, ))
 
@@ -99,23 +106,15 @@ class layer(layer_interface.layer):
 		self.debug('  #osmgraph_layer.zoom_event(): %f s' % (dt, ))
 
 	def mouse_release_event(self, event):
-		r = self._smallest_rectangle(
-			self.parent.to_world_coordinates((event.x(), event.y())))
-		verts = self.vertex_qtree.lookup(r)
-		if len(verts) == 0:
-			print 'nothing found'
+		cursor_geo = self._cursor_xy_to_geo(event.pos())
+		v = self._find_vertex_under_cursor(cursor_geo)
+		if not v:
 			return
 
-		#assert len(verts) < 2, 'more than one vertex in the area'
-		if len(verts) > 1:
-			print 'found %d vertices in selection' % (len(verts), )
-
+		# new selection
 		if self.source_vertex != -1 and self.target_vertex != -1:
 			self.drawable_marks = []
-			self.source_vertex = self.target_vertex = -1			
-
-		v = self._choose_closest(verts)
-		print 'selected vertex: %d' % (v, )
+			self.source_vertex = self.target_vertex = -1
 
 		if self.source_vertex == -1:
 			self.source_vertex = v
@@ -131,47 +130,60 @@ class layer(layer_interface.layer):
 		
 	def mouse_move_event(self, event):
 		t = time.clock()
-		
-		point_local = (event.pos().x(), event.pos().y())
-		point_world = self.parent.to_world_coordinates(point_local)
-		point_geo = gps.mercator.xy2gps(point_world, self.zoom)
-		point_geo_sig = QtCore.QPointF(point_geo.lat*1e7, point_geo.lon*1e7)
-		bounds = QtCore.QRectF(point_geo_sig, QtCore.QSizeF(1, 1))
-		leafs = self.vertex_qtree.leafs(bounds)
-		if len(leafs):
-			collection = leafs[0]
-			if not self.vertex_collection_under_cursor:
-				self.vertex_collection_under_cursor = collection
-				self.parent.update()
-				print '#mouse_move_event: update()'
-			elif collection.bounds() != self.vertex_collection_under_cursor.bounds():
-				self.vertex_collection_under_cursor = collection
-				self.parent.update()
-				print '#mouse_move_event: update()'
+
+		update = False
+
+		point_geo_sig = self._cursor_xy_to_geo(event.pos())
+
+		if self._colletion_visualisation(point_geo_sig):
+			update = True
+				
+		if self._vertex_visualisation(point_geo_sig):
+			update = True
+			
+		if update:
+			self.parent.update()
+			print '#mouse_move_event: update()'
 			
 		dt = time.clock() - t
 		#print '  #mouse_move_event(): %f s' % (dt, )
-		
+			
 	def key_press_event(self, event):
 		if event.key() == QtCore.Qt.Key_G:
 			drawable_settings['graph'] = not drawable_settings['graph']
 		if event.key() == QtCore.Qt.Key_Q:
 			drawable_settings['qtree-grid'] = not drawable_settings['qtree-grid']
 
+	def _colletion_visualisation(self, cursor_geo):
+		update = False		
+		bounds = QtCore.QRectF(cursor_geo, QtCore.QSizeF(1, 1))
+		leafs = self.vertex_qtree.leafs(bounds)
+		if len(leafs):
+			collection = leafs[0]
+			if not self.vertex_collection_under_cursor:
+				self.vertex_collection_under_cursor = collection
+				update = True
+			elif collection.bounds() != self.vertex_collection_under_cursor.bounds():
+				self.vertex_collection_under_cursor = collection
+				update = True
+		elif self.vertex_collection_under_cursor:
+			self.vertex_collection_under_cursor = None
+			update = True
+			
+		return update
 		
+	def _vertex_visualisation(self, cursor_geo):
+		update = False
+		v = self._find_vertex_under_cursor(cursor_geo)
+		if v and v != self.vertex_under_cursor:			
+			update = True
+		elif (not v) and self.vertex_under_cursor:
+			update = True
+		self.vertex_under_cursor = v
+		return update
+			
 	#@} layer-interface
 	
-	def _choose_closest(self, gpos, verts):
-		v_min = verts[0]
-		min_dist = euklid_distance_squered(gpos, v_min)
-		for i in range(1, len(verts)):
-			dist = euklid_distance_squered(gpos, verts[i])
-			if dist < min_dist:
-				min_dist = dist
-				v_min = verts[i]
-		return v_min
-
-
 	def _compute_path(self):
 		tm = time.clock()
 		search_algo = dijkstra.dijkstra(self.graph)
@@ -185,8 +197,6 @@ class layer(layer_interface.layer):
 			self.parent.update()
 		else:
 			print 'search failed'
-			
-	
 
 	def _prepare_drawable_data(self):
 		'''
@@ -263,16 +273,20 @@ class layer(layer_interface.layer):
 		sw = gps.gpspos(b.sw.lat/float(1e7), b.sw.lon/float(1e7))
 		ne = gps.gpspos(b.ne.lat/float(1e7), b.ne.lon/float(1e7))
 		return gps.georect(sw, ne)
+	
+	def _find_vertex_under_cursor(self, cursor_geo):
+		if self.vertex_collection_under_cursor:
+			verts = self.vertex_collection_under_cursor.data()
+			
+			dists = []
+			for v in verts:
+				dists.append(self._point_distance(v[0], cursor_geo))
+								
+			min_idx = min_val_idx(dists)
+			if min_idx != -1 and dists[min_idx] < 1000**2:
+				return verts[min_idx][1]			
+		return None
 
-	def _smallest_rectangle(self, xypos):
-		p1 = gps.mercator.xy2gps((xypos[0]-20, xypos[1]-20), self.zoom)
-		p2 = gps.mercator.xy2gps((xypos[0]+20, xypos[1]+20), self.zoom)
-		sw = gps.gpspos(min(p1.lat, p2.lat), min(p1.lon, p2.lon))
-		ne = gps.gpspos(max(p1.lat, p2.lat), max(p1.lon, p2.lon))
-		r = gps.georect(sw, ne)
-		return QtCore.QRectF(r.x()*1e7, r.y()*1e7, r.width()*1e7, 
-			r.height()*1e7)
-		
 	def _draw_geo_rect(self, rect_geo, view_offset, painter):
 		x0,y0 = view_offset
 		sw_geo = rect_geo.topLeft()
@@ -288,6 +302,14 @@ class layer(layer_interface.layer):
 			(center_geo.x()/1e7, center_geo.y()/1e7), view_offset, self.zoom)
 		painter.drawEllipse(QtCore.QPointF(center[0], center[1]), 3, 3)
 		
+	def _draw_vertex_under_cursor(self, pos, view_offset, painter):
+		center = geo_helper.coordinate.to_xy_drawable(
+			(pos.lat/1e7, pos.lon/1e7), view_offset, self.zoom)
+		painter.save()
+		painter.setBrush(QtGui.QBrush(QtCore.Qt.red))
+		painter.drawEllipse(QtCore.QPointF(center[0], center[1]), 3, 3)
+		painter.restore()
+		
 	def _prepare_drawable_graph(self):
 		'debugovacia funkcia, predpripravy graf na kreslenie'
 		g = self.graph
@@ -298,6 +320,19 @@ class layer(layer_interface.layer):
 				wprop = g.vertex_property(w)
 				self.drawable.append(
 					to_drawable_edge(vprop, wprop, self.zoom))
+				
+	def _point_distance(self, a, b):
+		return (b.x() - a.x())**2 + (b.y() - a.y())**2
+	
+	def _cursor_xy_to_geo(self, cursor_pos):
+		# (?) <> jak toto moze fungovat, ked pozicia mysi je od laveho horneho rohu ?
+		point_local = (cursor_pos.x(), cursor_pos.y())
+		point_world = self.parent.to_world_coordinates(point_local)
+		point_geo = gps.mercator.xy2gps(point_world, self.zoom)
+		point_geo_sig = QtCore.QPointF(point_geo.lat*1e7, point_geo.lon*1e7)
+		return point_geo_sig
+	
+	
 
 
 def to_drawable_edge(vprop, wprop, zoom):
@@ -314,7 +349,6 @@ def to_drawable_mark(vprop, zoom):
 	vpos_xy = gps.mercator.gps2xy(gps.gpspos(vpos[0], vpos[1]), zoom)
 	return drawable_mark(vpos_xy, 5)
 	
-
 def fill_vertex_qtree(g, tree):
 	for v in g.vertices():
 		vpos = g.vertex_property(v).position
@@ -322,6 +356,20 @@ def fill_vertex_qtree(g, tree):
 
 def euklid_distance_squered(p1, p2):
 	return (p1.lat-p2.lat)**2 + (p1.lon-p2.lon)**2
+
+def min_val_idx(seq):
+	first = True
+	min_idx, min_val = (-1, None)
+	for k,v in enumerate(seq):
+		if not first:
+			if v < min_val:
+				min_idx = k
+				min_val = v
+		else:
+			min_idx = k
+			min_val = v
+			first = False
+	return min_idx
 
 
 class drawable_edge:
