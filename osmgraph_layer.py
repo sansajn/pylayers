@@ -3,8 +3,11 @@
 # \author Adam Hlavatovič
 import sys, math, time, random
 from PyQt4 import QtCore, QtGui
-import layer_interface, gps, qtree, osmgraph_file, osmgraph_graph, dijkstra
+import layer_interface, gps, qtree, osmgraph_file, osmgraph_graph, dijkstra, \
+	geo_helper, qt_helper
 
+# g:graph, q:qtree-grid
+drawable_settings = {'graph':False, 'qtree-grid':True}
 
 class layer(layer_interface.layer):
 	def __init__(self, parent):
@@ -16,7 +19,9 @@ class layer(layer_interface.layer):
 		self.path = []
 		self.drawable_path = []
 		self.sample_compute = True
-		self.vertex_qtree = None
+		self.vertex_qtree = None  # vrcholy grafu v priestorovom usporiadani
+		self.vertex_collections = None  # oblasti v ktorych je maximalne N vrcholou (v podstate listy vertex_qtree stromu).
+		self.vertex_collection_under_cursor = None
 		self.source_vertex = -1
 		self.target_vertex = -1
 		self.drawable_marks = []
@@ -26,17 +31,16 @@ class layer(layer_interface.layer):
 		self.gfile = osmgraph_file.graph_file(graph_fname)
 		self.graph = osmgraph_graph.graph(self.gfile)
 
-		layer = self.parent.get_layer('map')
-		if layer:
-			layer.zoom_to(self._graph_gps_bounds())
+		helper = geo_helper.layer(self.parent)
+		helper.zoom_to(self._graph_gps_bounds())
 
-		bounds = self._graph_bounds()
-		self.vertex_qtree = qtree.quad_tree(
-			QtCore.QRectF(bounds.x(), bounds.y(), bounds.width(), 
-				bounds.height()))
+		bounds = qt_helper.grect_to_qrect(self._graph_bounds())
+		self.vertex_qtree = qtree.qtree(bounds)
 		fill_vertex_qtree(self.graph, self.vertex_qtree)
-
+		
 	def paint(self, painter, view_offset):
+		t = time.clock()
+		
 		# graph
 		r'''
 		for i in range(0, len(lod_table)):
@@ -58,6 +62,32 @@ class layer(layer_interface.layer):
 		# marks
 		for d in self.drawable_marks:
 			d.paint(painter, view_offset)
+			
+		# qtree-grid
+		if drawable_settings['qtree-grid']:
+			leafs = self.vertex_qtree.leafs()
+			for leaf in leafs:
+				self._draw_geo_rect(leaf.bounds(), view_offset, painter)
+			
+		# collection under cursor
+		if self.vertex_collection_under_cursor:
+			painter.save()
+			
+			# bounds
+			painter.setPen(QtCore.Qt.red)
+			collection = self.vertex_collection_under_cursor			
+			self._draw_geo_rect(collection.bounds(), view_offset, painter)			
+			
+			# vertices
+			painter.setPen(QtCore.Qt.black)
+			for elem in collection.data():
+				v_pos = elem[0]
+				self._draw_geo_circle(v_pos, view_offset, painter)
+				
+			painter.restore()
+			
+		dt = time.clock() - t
+		self.debug('  #osmgraph_layer.paint(): %f s' % (dt, ))
 
 	def zoom_event(self, zoom):
 		self.zoom = zoom
@@ -98,8 +128,39 @@ class layer(layer_interface.layer):
 			to_drawable_mark(self.graph.vertex_property(v), self.zoom))
 
 		self.parent.update()
-	#@} layer-interface
+		
+	def mouse_move_event(self, event):
+		t = time.clock()
+		
+		point_local = (event.pos().x(), event.pos().y())
+		point_world = self.parent.to_world_coordinates(point_local)
+		point_geo = gps.mercator.xy2gps(point_world, self.zoom)
+		point_geo_sig = QtCore.QPointF(point_geo.lat*1e7, point_geo.lon*1e7)
+		bounds = QtCore.QRectF(point_geo_sig, QtCore.QSizeF(1, 1))
+		leafs = self.vertex_qtree.leafs(bounds)
+		if len(leafs):
+			collection = leafs[0]
+			if not self.vertex_collection_under_cursor:
+				self.vertex_collection_under_cursor = collection
+				self.parent.update()
+				print '#mouse_move_event: update()'
+			elif collection.bounds() != self.vertex_collection_under_cursor.bounds():
+				self.vertex_collection_under_cursor = collection
+				self.parent.update()
+				print '#mouse_move_event: update()'
+			
+		dt = time.clock() - t
+		#print '  #mouse_move_event(): %f s' % (dt, )
+		
+	def key_press_event(self, event):
+		if event.key() == QtCore.Qt.Key_G:
+			drawable_settings['graph'] = not drawable_settings['graph']
+		if event.key() == QtCore.Qt.Key_Q:
+			drawable_settings['qtree-grid'] = not drawable_settings['qtree-grid']
 
+		
+	#@} layer-interface
+	
 	def _choose_closest(self, gpos, verts):
 		v_min = verts[0]
 		min_dist = euklid_distance_squered(gpos, v_min)
@@ -124,9 +185,11 @@ class layer(layer_interface.layer):
 			self.parent.update()
 		else:
 			print 'search failed'
+			
+	
 
 	def _prepare_drawable_data(self):
-		r'''
+		'''
 		self.drawable = []
 		for i in range(0, len(lod_table)):
 			self.drawable.append([])
@@ -144,16 +207,11 @@ class layer(layer_interface.layer):
 		for i in range(0, len(lod_table)):
 			print '  %d:%d' % (i, len(self.drawable[i]))
 		'''
+		
 		self.drawable = []
-		if len(self.graph.vertices()) < 500:
-			g = self.graph
-			for v in g.vertices():
-				vprop = g.vertex_property(v)
-				for e in g.adjacent_edges(v):
-					w = g.target(e)
-					wprop = g.vertex_property(w)
-					self.drawable.append(
-						to_drawable_edge(vprop, wprop, self.zoom))
+		
+		if drawable_settings['graph']:
+			self._prepare_drawable_graph()		
 
 		if len(self.path) > 0:
 			self._fill_drawable_path()
@@ -193,6 +251,7 @@ class layer(layer_interface.layer):
 		return (v, distance)
 			
 	def _graph_bounds(self):
+		'Vrati hranice grafu ako signed georect.'
 		graph_header = self.gfile.read_header()
 		bounds = graph_header['bounds']
 		sw = gps.signed_position(bounds[0][0], bounds[0][1])
@@ -213,6 +272,32 @@ class layer(layer_interface.layer):
 		r = gps.georect(sw, ne)
 		return QtCore.QRectF(r.x()*1e7, r.y()*1e7, r.width()*1e7, 
 			r.height()*1e7)
+		
+	def _draw_geo_rect(self, rect_geo, view_offset, painter):
+		x0,y0 = view_offset
+		sw_geo = rect_geo.topLeft()
+		ne_geo = rect_geo.bottomRight()
+		sw_xy = gps.mercator.gps2xy(gps.gpspos(sw_geo.x()/1e7, sw_geo.y()/1e7), self.zoom)
+		ne_xy = gps.mercator.gps2xy(gps.gpspos(ne_geo.x()/1e7, ne_geo.y()/1e7), self.zoom) 
+		
+		painter.drawRect(QtCore.QRectF(QtCore.QPointF(sw_xy[0]+x0, ne_xy[1]+y0), 
+			QtCore.QPointF(ne_xy[0]+x0, sw_xy[1]+y0)))
+		
+	def _draw_geo_circle(self, center_geo, view_offset, painter):
+		center = geo_helper.coordinate.to_xy_drawable(
+			(center_geo.x()/1e7, center_geo.y()/1e7), view_offset, self.zoom)
+		painter.drawEllipse(QtCore.QPointF(center[0], center[1]), 3, 3)
+		
+	def _prepare_drawable_graph(self):
+		'debugovacia funkcia, predpripravy graf na kreslenie'
+		g = self.graph
+		for v in g.vertices():
+			vprop = g.vertex_property(v)
+			for e in g.adjacent_edges(v):
+				w = g.target(e)
+				wprop = g.vertex_property(w)
+				self.drawable.append(
+					to_drawable_edge(vprop, wprop, self.zoom))
 
 
 def to_drawable_edge(vprop, wprop, zoom):
@@ -233,7 +318,7 @@ def to_drawable_mark(vprop, zoom):
 def fill_vertex_qtree(g, tree):
 	for v in g.vertices():
 		vpos = g.vertex_property(v).position
-		tree.insert((vpos.lat, vpos.lon), v)
+		tree.insert(QtCore.QPointF(vpos.lat, vpos.lon), v)
 
 def euklid_distance_squered(p1, p2):
 	return (p1.lat-p2.lat)**2 + (p1.lon-p2.lon)**2

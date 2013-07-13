@@ -22,6 +22,7 @@ class graph_file:
 		}
 
 	def read_itable(self, header):
+		'Precita incidencnu tabulku (adjacency list).'
 		n_verts = header['vertices']
 		self._fgraph.seek(header['itable_idx'])
 		d = self._fgraph.read(4*n_verts)
@@ -59,4 +60,3 @@ class graph_file:
 			if itable[idx] != 0xffffffff:
 				return itable[idx]
 		return 0xffffffff
-

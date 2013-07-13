@@ -33,3 +33,14 @@ class layer:
 	def _inside(self, a, b, w, h):
 		return abs(a[0] - b[0]) <= w and abs(a[1] - b[1]) <= h
 	
+class coordinate:
+	def __init__(self):
+		pass
+
+	@staticmethod	
+	def to_xy_drawable(coord_geo, view_offset, zoom):
+		p = coord_geo
+		x0,y0 = view_offset
+		p_xy = gps.mercator.gps2xy(gps.gpspos(p[0], p[1]), zoom)
+		return (p_xy[0]+x0, p_xy[1]+y0)
+

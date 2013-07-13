@@ -67,23 +67,6 @@ class layer(layer_interface.layer):
 			self.hide = not self.hide
 	#@}
 
-
-	#! Public interface
-	#@{
-	def zoom_to(self, georect):
-		w,h = self.parent.window_size()
-		zoom = 0
-		for zoom in range(0, self.MAX_OSM_ZOOM):
-			sw = gps.mercator.gps2xy(georect.sw, zoom)
-			ne = gps.mercator.gps2xy(georect.ne, zoom)
-			if abs(ne[0] - sw[0]) > w or abs(ne[1] - sw[1]) > h:
-				break
-		zoom = max(0, zoom-1)
-		self.parent.set_zoom(zoom)
-		self.parent.center_to(gps.mercator.gps2xy(georect.center(), zoom))
-	#@}
-	
-		
 	def change_map(self):
 		self.debug('\n#osm_layer.change_map()')
 		tiles = self.tiles_not_in_cache(self.visible_tiles())

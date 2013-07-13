@@ -44,6 +44,12 @@ class georect:
 
 	def height(self):
 		return abs(self.ne.lon - self.sw.lon)
+	
+	def x(self):
+		return self.sw.lat
+	
+	def y(self):
+		return self.ne.lon
 
 	def center(self):
 		return gpspos(

@@ -38,6 +38,8 @@ class Form(QtGui.QMainWindow):
 
 		if len(args) > 1:
 			self._open_file(args[1])
+			
+		self.setMouseTracking(True)
 
 	#{@ Public interface
 	def add_layer(self, layer):
@@ -122,6 +124,10 @@ class Form(QtGui.QMainWindow):
 			self.view_offset[1] + diff[1])
 		for layer in self.layers:
 			layer.pan_event()
+			
+	def mouse_move_event(self, e):
+		for layer in self.layers:
+			layer.mouse_move_event(e)
 
 	def view_center_on_map(self):
 		w,h = self.window_size()
@@ -183,10 +189,13 @@ class Form(QtGui.QMainWindow):
 			self.mouse_move = False
 
 	def mouseMoveEvent(self, e):
-		self.mouse_move = True
-		diff = (e.x() - self.click_pos[0], e.y() - self.click_pos[1])
-		self.click_pos = (e.x(), e.y())
-		self.pan_event(diff)
+		if e.buttons() == QtCore.Qt.RightButton:  # pan
+			self.mouse_move = True
+			diff = (e.x() - self.click_pos[0], e.y() - self.click_pos[1])
+			self.click_pos = (e.x(), e.y())
+			self.pan_event(diff)
+		else:  # ordinary mouse move
+			self.mouse_move_event(e)
 
 	def resizeEvent(self, e):
 		self.update()

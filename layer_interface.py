@@ -24,12 +24,18 @@ class layer:
 		pass		
 
 	def pan_event(self):
+		'Posun vrstvy.'
+		pass
+	
+	# \param event QMouseEvent
+	def mouse_move_event(self, event):
 		pass
 
 	# \param event QMouseEvent
 	def mouse_press_event(self, event):
 		pass
 
+	# \param event QMouseEvent
 	def mouse_release_event(self, event):
 		pass
 

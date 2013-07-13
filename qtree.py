@@ -14,8 +14,10 @@ class qtree:
 	def lookup(self, bounds):
 		return self._root.lookup(bounds)
 	
-	def leafs(self, bounds):
+	def leafs(self, bounds=None):
 		r'Vrati listy stromu.'
+		if bounds == None:
+			bounds = self.bounds()
 		return self._root.leafs(bounds)
 	
 	def bounds(self):
