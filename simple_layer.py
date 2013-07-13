@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+# Sample layer imlementation.
 # \author Adam Hlavatovič
 import time
 from PyQt4 import QtCore, QtGui
