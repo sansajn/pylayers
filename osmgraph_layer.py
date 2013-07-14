@@ -151,8 +151,12 @@ class layer(layer_interface.layer):
 		#print '  #mouse_move_event(): %f s' % (dt, )
 			
 	def key_press_event(self, event):
-		if event.key() == QtCore.Qt.Key_G:
+		if event.key() == QtCore.Qt.Key_G:			
 			drawable_settings['graph'] = not drawable_settings['graph']
+			if drawable_settings['graph']:
+				self._prepare_drawable_graph()
+			else:
+				self.drawable = []
 		if event.key() == QtCore.Qt.Key_Q:
 			drawable_settings['qtree-grid'] = not drawable_settings['qtree-grid']
 

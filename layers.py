@@ -240,11 +240,7 @@ class layers(QtGui.QWidget):
 		elif is_path_diff_file(str(fname)):
 			layer = path_layer.layer(self)
 			layer.create(fname)
-			self.add_layer(layer)
-		elif is_path2_file(str(fname)):
-			layer = path2_layer.layer(self)
-			layer.create(str(fname))
-			self.add_layer(layer)
+			self.add_layer(layer)		
 		elif is_edges_file(str(fname)):
 			layer = edge_layer.layer(self)
 			layer.create(str(fname))
