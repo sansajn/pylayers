@@ -13,9 +13,13 @@ class main_window(QtGui.QMainWindow):
 	
 		self.resize(800, 600)
 
-	def append_dock(self, dock):
-		pass
-
+	#@{ Public interface
+	def append_dock(self, dock, area=None):
+		if not area:
+			area = QtCore.Qt.LeftDockWidgetArea
+		self.addDockWidget(area, dock)
+	#@}
+	
 
 if __name__ == '__main__':
 	app = QtGui.QApplication(sys.argv)

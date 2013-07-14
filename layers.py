@@ -21,8 +21,14 @@ class layers(QtGui.QWidget):
 		self.mouse_move = False
 		self.layers = []
 		self.files = []  # zoznam otvorenych suborou
+		
+		self._layer_info_builder = layer_info_builder()		
+		
+		self._layer_info_dock = self._create_info_dock()
+		self.parent.append_dock(self._layer_info_dock)
+		
+		self.append_layer_description(self._layer_description())
 
-		#self.resize(800, 600)
 		self.update_window_title()
 		
 		self.add_layer(osm_layer.layer(self))
@@ -31,6 +37,7 @@ class layers(QtGui.QWidget):
 			self._open_file(args[1])
 			
 		self.setMouseTracking(True)
+		self.setFocusPolicy(QtCore.Qt.ClickFocus)
 
 	#{@ Public interface
 	def add_layer(self, layer):
@@ -101,8 +108,13 @@ class layers(QtGui.QWidget):
 	def window_size(self):
 		r = self.geometry()
 		return (r.width(), r.height())
+
+	def append_layer_description(self, desc):
+		'Zobrazi popis vrstvy v info dock(u).'
+		builder = self._layer_info_builder
+		builder.append_description(desc)
+		self._update_layer_info_dock(builder.str())	
 	#}@ Public interface
-	
 
 	def zoom_event(self, step):
 		new_zoom = max(self.zoom+step, 0)  # zdola ohranicene
@@ -157,7 +169,7 @@ class layers(QtGui.QWidget):
 		if e.key() == QtCore.Qt.Key_O:
 			fname = open_file_dialog(self)
 			self._open_file(fname)
-
+		
 		for layer in self.layers:
 			layer.key_press_event(e)
 			
@@ -194,6 +206,31 @@ class layers(QtGui.QWidget):
 		self.update()
 	#@}  Qt events
 
+	def _create_info_dock(self):
+		dock = QtGui.QDockWidget('Info', self)
+		dock.setAllowedAreas(
+			QtCore.Qt.LeftDockWidgetArea|QtCore.Qt.RightDockWidgetArea)
+		
+		info = QtGui.QTextBrowser()
+		info.setHtml(self._layer_info_builder.str())
+
+		dock.setWidget(info)
+		
+		return dock	
+		
+	def _update_layer_info_dock(self, html):
+		info = self._layer_info_dock.widget()
+		info.setHtml(html)
+
+	def _layer_description(self):
+		return {
+			'title':'Layers',
+			'description':'Core support for layers.',
+			'commands':[
+				'o to open a file',
+				'right to pan a layer',
+				'wheel to zoom in/out']
+		}
 
 	def _open_file(self, fname):
 		if is_vof_file(str(fname)):
@@ -233,8 +270,6 @@ class layers(QtGui.QWidget):
 		self.update()
 
 
-
-
 def is_vof_file(fname):
 	return os.path.splitext(fname)[1] == '.vof'
 
@@ -258,5 +293,41 @@ def is_simple_file(fname):
 
 def open_file_dialog(parent):
 	return QtGui.QFileDialog.getOpenFileName(parent, 'Open dump file ...')
-		
 
+		
+class layer_info_builder:
+	def __init__(self):
+		self.descs = []
+
+	def append_description(self, desc):
+		r'''Predpoklada strukturu v nasledujucom tvare
+			desc {
+				'title':'Layer',
+				'descrition':'Layer widget.'
+				'commands':['o to open a file']
+			}
+		'''
+		self.descs.append(desc)
+
+	def str(self):
+		s = '<html><body>'
+		for desc in self.descs:
+			s += self._build_header(desc)
+			s += self._build_commands(desc['commands'])
+		s += '</body></html>'
+		return s
+
+	def _build_header(self, desc):
+		s = '''
+			<small>%(description)s</small><br/>
+			<b>%(title)s</b>
+			<hr/>
+		'''
+		return s % desc
+
+	def _build_commands(self, cmds):
+		s = '<ul>\n'
+		for cmd in cmds:
+			s += '<li>%s</li>\n' % (cmd,)
+		s += '</ul><br\>'
+		return s

@@ -7,10 +7,10 @@ import layer_interface, gps
 
 
 class layer(layer_interface.layer):
-	def __init__(self, parent):
+	def __init__(self, widget):
 		layer_interface.layer.__init__(self)
 		self.MAX_OSM_ZOOM = 18
-		self.parent = parent
+		self.widget = widget
 		self.name = 'open-street-map'
 		self.category = 'map'
 		self.zoom = None
@@ -27,8 +27,10 @@ class layer(layer_interface.layer):
 		self.network = QtNetwork.QNetworkAccessManager()
 		self.network.setCache(self.tile_disk_cache)
 		
-		parent.connect(self.network, QtCore.SIGNAL('finished(QNetworkReply *)'),
+		widget.connect(self.network, QtCore.SIGNAL('finished(QNetworkReply *)'),
 			self.tile_reply_event)
+		
+		widget.append_layer_description(self._layer_description())
 
 	#@{ layer_interface implementation
 	def paint(self, painter, view_offset):
@@ -75,7 +77,7 @@ class layer(layer_interface.layer):
 		self.standard_update()
 
 	def standard_update(self):
-		self.parent.update()
+		self.widget.update()
 
 	def draw_map(self, painter):
 		r'''Nakreslí mapu s dlaždíc v pamäti, alebo na disku (alebo 
@@ -95,7 +97,7 @@ class layer(layer_interface.layer):
 					self.draw_tile(tile, j, i, painter)
 
 	def draw_tile(self, tile, x, y, painter):
-		x0,y0 = self.parent.view_offset
+		x0,y0 = self.widget.view_offset
 		painter.drawPixmap(QtCore.QPoint(x*256+x0, y*256+y0), tile)
 		
 	def load_tile_from_ram_cache(self, x, y):
@@ -162,8 +164,8 @@ class layer(layer_interface.layer):
 			return None
 
 	def visible_tiles(self):
-		w,h = self.parent.window_size()
-		x0,y0 = self.parent.view_offset
+		w,h = self.widget.window_size()
+		x0,y0 = self.widget.view_offset
 		N = M = 2**self.zoom
 		w_t = h_t = 256
 		rc_view = ((0, h), (w, 0)) 
@@ -252,6 +254,14 @@ class layer(layer_interface.layer):
 					x_down, y_down, z_down, x, y, z)
 			z_down -= 1
 		return None
+	
+	def _layer_description(self):
+		return {
+			'title':'OSM layer',
+			'description':"Maps from 'openstreetmap.org'.",
+			'commands':[
+				'm to show/hide map']
+		}
 	
 
 def is_intersection_empty(r1, r2):
