@@ -10,9 +10,9 @@ import layer_interface, gps, qtree, osmgraph_file, osmgraph_graph, dijkstra, \
 drawable_settings = {'graph':False, 'qtree-grid':True}
 
 class layer(layer_interface.layer):
-	def __init__(self, parent):
+	def __init__(self, widget):
 		layer_interface.layer.__init__(self)
-		self.parent = parent
+		self.widget = widget
 		self.gfile = None
 		self.graph = None
 		self.drawable = None  # 11 LOD, see LOD-table
@@ -26,13 +26,15 @@ class layer(layer_interface.layer):
 		self.source_vertex = -1
 		self.target_vertex = -1
 		self.drawable_marks = []
+		
+		widget.append_layer_description(self._layer_description())
 
 	#@{ layer-interface
 	def create(self, graph_fname):
 		self.gfile = osmgraph_file.graph_file(graph_fname)
 		self.graph = osmgraph_graph.graph(self.gfile)
 
-		helper = geo_helper.layer(self.parent)
+		helper = geo_helper.layer(self.widget)
 		helper.zoom_to(self._graph_gps_bounds())
 
 		bounds = qt_helper.grect_to_qrect(self._graph_bounds())
@@ -126,7 +128,7 @@ class layer(layer_interface.layer):
 		self.drawable_marks.append(
 			to_drawable_mark(self.graph.vertex_property(v), self.zoom))
 
-		self.parent.update()
+		self.widget.update()
 		
 	def mouse_move_event(self, event):
 		t = time.clock()
@@ -142,7 +144,7 @@ class layer(layer_interface.layer):
 			update = True
 			
 		if update:
-			self.parent.update()
+			self.widget.update()
 			print '#mouse_move_event: update()'
 			
 		dt = time.clock() - t
@@ -194,8 +196,9 @@ class layer(layer_interface.layer):
 			print 'search takes: %f s (%d -> %d : %d)' % (dt, 
 				self.source_vertex, self.target_vertex, len(self.path))
 			self._fill_drawable_path()
-			self.parent.update()
+			self.widget.update()
 		else:
+			self.path = []
 			print 'search failed'
 
 	def _prepare_drawable_data(self):
@@ -327,13 +330,21 @@ class layer(layer_interface.layer):
 	def _cursor_xy_to_geo(self, cursor_pos):
 		# (?) <> jak toto moze fungovat, ked pozicia mysi je od laveho horneho rohu ?
 		point_local = (cursor_pos.x(), cursor_pos.y())
-		point_world = self.parent.to_world_coordinates(point_local)
+		point_world = self.widget.to_world_coordinates(point_local)
 		point_geo = gps.mercator.xy2gps(point_world, self.zoom)
 		point_geo_sig = QtCore.QPointF(point_geo.lat*1e7, point_geo.lon*1e7)
 		return point_geo_sig
 	
-	
-
+	def _layer_description(self):
+		return {
+			'title':'OSM graph layer',
+			'description':"Simple graph imlementation.",
+			'commands':[
+				'g to show/hide graph',
+				'q to show/hide quad-tree structure',
+				'left to select source/target vertex'
+			]
+		}
 
 def to_drawable_edge(vprop, wprop, zoom):
 	vpos = [vprop.position.lat/float(1e7), vprop.position.lon/float(1e7)]
