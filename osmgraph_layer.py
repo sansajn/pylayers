@@ -279,6 +279,7 @@ class layer(layer_interface.layer):
 		b = self._graph_bounds()
 		sw = gps.gpspos(b.sw.lat/float(1e7), b.sw.lon/float(1e7))
 		ne = gps.gpspos(b.ne.lat/float(1e7), b.ne.lon/float(1e7))
+		assert valid_bounds(b), 'invalid bounds'
 		return gps.georect(sw, ne)
 	
 	def _find_vertex_under_cursor(self, cursor_geo):
@@ -386,6 +387,11 @@ def min_val_idx(seq):
 			first = False
 	return min_idx
 
+def valid_bounds(b):
+	return valid_position(b.sw) and valid_position(b.ne)
+
+def valid_position(p):
+	return p.lat <= 180*1e7 and p.lat >= -180*1e7 and p.lon <= 180*1e7 and p.lon >= -180*1e7 
 
 class drawable_edge:
 	def __init__(self, p1, p2):
@@ -397,12 +403,20 @@ class drawable_edge:
 			
 	#@{ drawable interface
 	def paint(self, painter, view_offset):
-		x0,y0 = view_offset		
+		x0,y0 = view_offset
+		# line
 		painter.drawLine(self.p1.x()+x0, self.p1.y()+y0, self.p2.x()+x0,
 			self.p2.y()+y0)
+		# vertices
 		painter.drawRect(self.p1.x()+x0-2, self.p1.y()+y0-2, 4, 4)
 		painter.drawRect(self.p2.x()+x0-2, self.p2.y()+y0-2, 4, 4)
+		# direction
+		
 	#@}
+	
+arrow_angle = 30
+arrow_length = 4
+#arrow_size_coef = arrow_length*tg(arrow_angle)
 
 class drawable_mark:
 	def __init__(self, xypos, r):

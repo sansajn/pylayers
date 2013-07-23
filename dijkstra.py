@@ -30,11 +30,14 @@ class dijkstra:
 				if w_prop.distance > w_dist:
 					w_prop.distance = w_dist
 					w_prop.predecessor = v
-					if isnew:
+					'''
+					if isnew:  # is-new je blbost
 						heapq.heappush(heap, (w_dist, w))
 					else:
 						# update value (not implemented)
 						heapq.heappush(heap, (w_dist, w))
+					'''
+					heapq.heappush(heap, (w_dist, w))
 
 		if v == t:
 			return self._construct_path(v)
