@@ -45,11 +45,6 @@ class layer(layer_interface.layer):
 		t = time.clock()
 		
 		# graph
-		r'''
-		for i in range(0, len(lod_table)):
-			if self.zoom >= lod_table[i]:
-			self._paint_drawable_group(self.drawable[i], painter, view_offset)
-		'''
 		for d in self.drawable:
 			d.paint(painter, view_offset)
 
@@ -93,7 +88,8 @@ class layer(layer_interface.layer):
 		if self.vertex_under_cursor:
 			g = self.graph
 			vprop = g.vertex_property(self.vertex_under_cursor)
-			self._draw_vertex_under_cursor(vprop.position, view_offset, painter)
+			self._draw_vertex_under_cursor(vprop.position, 
+				self.vertex_under_cursor, view_offset, painter)
 			
 		dt = time.clock() - t
 		self.debug('  #osmgraph_layer.paint(): %f s' % (dt, ))
@@ -310,12 +306,22 @@ class layer(layer_interface.layer):
 			(center_geo.x()/1e7, center_geo.y()/1e7), view_offset, self.zoom)
 		painter.drawEllipse(QtCore.QPointF(center[0], center[1]), 3, 3)
 		
-	def _draw_vertex_under_cursor(self, pos, view_offset, painter):
+	def _draw_vertex_under_cursor(self, pos, vid, view_offset, painter):
 		center = geo_helper.coordinate.to_xy_drawable(
 			(pos.lat/1e7, pos.lon/1e7), view_offset, self.zoom)
 		painter.save()
+		# vertex
 		painter.setBrush(QtGui.QBrush(QtCore.Qt.red))
-		painter.drawEllipse(QtCore.QPointF(center[0], center[1]), 3, 3)
+		v_center = QtCore.QPointF(center[0], center[1])
+		painter.drawEllipse(v_center, 3, 3)
+		# id
+		id_text = '%d' % (vid,)
+		font = painter.font()
+		fm = QtGui.QFontMetricsF(font)
+		rc_text = fm.boundingRect(id_text)
+		painter.setPen(QtCore.Qt.black)
+		painter.drawText(v_center + 
+			QtCore.QPointF(-rc_text.width()/2.0, -5), id_text)
 		painter.restore()
 		
 	def _prepare_drawable_graph(self):
