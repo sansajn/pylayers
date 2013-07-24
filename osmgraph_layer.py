@@ -15,7 +15,7 @@ class layer(layer_interface.layer):
 		self.widget = widget
 		self.gfile = None
 		self.graph = None
-		self.drawable = None  # 11 LOD, see LOD-table
+		self.drawable = [[],[]]  # car and ped
 		self.path = []
 		self.drawable_path = []
 		self.sample_compute = True
@@ -45,8 +45,16 @@ class layer(layer_interface.layer):
 		t = time.clock()
 		
 		# graph
-		for d in self.drawable:
+		for d in self.drawable[drawable_category.CAR]:
 			d.paint(painter, view_offset)
+			
+		painter.save()
+		painter.setPen(QtCore.Qt.gray)
+		
+		for d in self.drawable[drawable_category.PEDESTRIAN]:
+			d.paint(painter, view_offset)
+			
+		painter.restore()
 
 		# path
 		painter.save()
@@ -220,9 +228,7 @@ class layer(layer_interface.layer):
 		for i in range(0, len(lod_table)):
 			print '  %d:%d' % (i, len(self.drawable[i]))
 		'''
-		
-		self.drawable = []
-		
+				
 		if drawable_settings['graph']:
 			self._prepare_drawable_graph()		
 
@@ -325,15 +331,19 @@ class layer(layer_interface.layer):
 		painter.restore()
 		
 	def _prepare_drawable_graph(self):
-		'debugovacia funkcia, predpripravy graf na kreslenie'
+		'predpripravy graf na kreslenie'
+		self.drawable = [[],[]]  # car, pedestrian
 		g = self.graph
 		for v in g.vertices():
 			vprop = g.vertex_property(v)
 			for e in g.adjacent_edges(v):
 				w = g.target(e)
 				wprop = g.vertex_property(w)
-				self.drawable.append(
-					to_drawable_edge(vprop, wprop, self.zoom))
+				drawable = to_drawable_edge(vprop, wprop, self.zoom)
+				if e.type < highway_values.PATH:
+					self.drawable[drawable_category.CAR].append(drawable)
+				else:
+					self.drawable[drawable_category.PEDESTRIAN].append(drawable)
 				
 	def _point_distance(self, a, b):
 		return (b.x() - a.x())**2 + (b.y() - a.y())**2
@@ -359,11 +369,9 @@ class layer(layer_interface.layer):
 
 def to_drawable_edge(vprop, wprop, zoom):
 	vpos = [vprop.position.lat/float(1e7), vprop.position.lon/float(1e7)]
-	wpos = [wprop.position.lat/float(1e7), wprop.position.lon/float(1e7)]
-	
+	wpos = [wprop.position.lat/float(1e7), wprop.position.lon/float(1e7)]	
 	vpos_xy = gps.mercator.gps2xy(gps.gpspos(vpos[0], vpos[1]), zoom)
 	wpos_xy = gps.mercator.gps2xy(gps.gpspos(wpos[0], wpos[1]), zoom)
-
 	return drawable_edge(vpos_xy, wpos_xy);
 
 def to_drawable_mark(vprop, zoom):
@@ -399,8 +407,10 @@ def valid_bounds(b):
 def valid_position(p):
 	return p.lat <= 180*1e7 and p.lat >= -180*1e7 and p.lon <= 180*1e7 and p.lon >= -180*1e7 
 
+
 class drawable_edge:
 	def __init__(self, p1, p2):
+		self._type = type
 		self.set_position(p1, p2)
 		
 	def set_position(self, p1, p2):
@@ -416,14 +426,9 @@ class drawable_edge:
 		# vertices
 		painter.drawRect(self.p1.x()+x0-2, self.p1.y()+y0-2, 4, 4)
 		painter.drawRect(self.p2.x()+x0-2, self.p2.y()+y0-2, 4, 4)
-		# direction
-		
 	#@}
-	
-arrow_angle = 30
-arrow_length = 4
-#arrow_size_coef = arrow_length*tg(arrow_angle)
 
+	
 class drawable_mark:
 	def __init__(self, xypos, r):
 		self.xypos = QtCore.QPoint(xypos[0], xypos[1])
@@ -448,6 +453,10 @@ class drawable_mark:
 
 		painter.restore()
 	#@}
+
+class drawable_category:
+	CAR = 0
+	PEDESTRIAN = 1
 
 class highway_values:
 	r'\saa http://wiki.openstreetmap.org/wiki/Map_features#Highway'
