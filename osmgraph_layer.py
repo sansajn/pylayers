@@ -417,12 +417,20 @@ class drawable_edge:
 		painter.drawRect(self.p1.x()+x0-2, self.p1.y()+y0-2, 4, 4)
 		painter.drawRect(self.p2.x()+x0-2, self.p2.y()+y0-2, 4, 4)
 		# direction
-		
+		arrow_angle = 30
+		arrow_length = 4
+		arrow_size_coef = arrow_length/math.cos(math.radians(arrow_angle))
+		line_w, line_h = (abs(self.p1.x() - self.p2.x()), 
+			abs(self.p1.y() - self.p2.y()))
+		line_angle = math.atan(line_h/line_w)
+		x = self.p2.x() - arrow_size_coef * math.cos(
+			abs(math.radians(arrow_angle)-line_angle))
+		y = self.p2.x() - arrow_size_coef * math.sin(
+			abs(math.radians(arrow_angle)-line_angle))
+		C = (self.p2.x(), self.p2.y())
+		painter.drawLine(C[0]+x0, C[1]+y0, x+x0, y+y0)
 	#@}
-	
-arrow_angle = 30
-arrow_length = 4
-#arrow_size_coef = arrow_length*tg(arrow_angle)
+
 
 class drawable_mark:
 	def __init__(self, xypos, r):
