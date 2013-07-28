@@ -1,10 +1,11 @@
 # -*- coding: utf-8 -*-
 # Zobrazuje graf vygenerovaný programom 'osm/graph/graph_generator'.
 # \author Adam Hlavatovič
-import sys, math, time, random
+import sys, os, math, time, random
 from PyQt4 import QtCore, QtGui
-import layer_interface, gps, qtree, osmgraph_file, osmgraph_graph, dijkstra, \
-	geo_helper, qt_helper
+import osmgraph_file, osmgraph_graph
+import osmgraph_bidi_file, osmgraph_bidi_graph
+import layer_interface, gps, qtree, dijkstra, geo_helper, qt_helper
 
 # g:graph, q:qtree-grid
 drawable_settings = {'graph':False, 'qtree-grid':True}
@@ -31,8 +32,13 @@ class layer(layer_interface.layer):
 
 	#@{ layer-interface
 	def create(self, graph_fname):
-		self.gfile = osmgraph_file.graph_file(graph_fname)
-		self.graph = osmgraph_graph.graph(self.gfile)
+		ext = os.path.splitext(graph_fname)[1]
+		if ext == '.grp':  # forward graph
+			self.gfile = osmgraph_file.graph_file(graph_fname)
+			self.graph = osmgraph_graph.graph(self.gfile)
+		elif ext == '.bgrp':  # bidirectional graph
+			self.gfile = osmgraph_bidi_file.graph_file(graph_fname)			
+			self.graph = osmgraph_bidi_graph.graph(self.gfile)
 
 		helper = geo_helper.layer(self.widget)
 		helper.zoom_to(self._graph_gps_bounds())

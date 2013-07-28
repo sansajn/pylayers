@@ -282,7 +282,8 @@ def is_cluster_file(fname):
 	return os.path.splitext(fname)[1] == '.cluster'
 
 def is_osmgraph_file(fname):
-	return os.path.splitext(fname)[1] == '.grp'
+	ext = os.path.splitext(fname)[1]
+	return ext == '.grp' or ext == '.bgrp'
 
 def is_simple_file(fname):
 	return os.path.splitext(fname)[1] == '.simple'
