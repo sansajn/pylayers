@@ -13,7 +13,7 @@ class graph:
 		self._vtable = self._gf.read_vtable(self._header)
 
 	# incidence-graph
-	def out_edges(self, v):
+	def out_edges(self, v):		
 		return [edge_prop(e) for e in self._gf.read_edges(self._header, 
 			self._vtable, v) if self._output(e)]
 	
@@ -68,17 +68,18 @@ class graph:
 		return e
 	
 	def _output(self, e):
-		return e.direction == 0
+		return e[1] == 0  # 1:direction
 	
 	def _input(self, e):
-		return e.direction == 1
+		return e[1] == 1  # 1:direction
 
 
 class edge_prop:
 	def __init__(self, raw):
 		self.target = raw[0]
-		self.cost = raw[1]
+		self.direction = raw[1]
 		self.type = raw[2]
+		self.cost = raw[3]
 
 class vertex_prop:
 	def __init__(self, raw):

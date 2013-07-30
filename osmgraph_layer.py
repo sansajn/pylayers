@@ -5,7 +5,8 @@ import sys, os, math, time, random
 from PyQt4 import QtCore, QtGui
 import osmgraph_file, osmgraph_graph
 import osmgraph_bidi_file, osmgraph_bidi_graph
-import layer_interface, gps, qtree, dijkstra, geo_helper, qt_helper
+import dijkstra, bidi_dijkstra
+import layer_interface, gps, qtree, geo_helper, qt_helper
 
 # g:graph, q:qtree-grid
 drawable_settings = {'graph':False, 'qtree-grid':True}
@@ -16,6 +17,7 @@ class layer(layer_interface.layer):
 		self.widget = widget
 		self.gfile = None
 		self.graph = None
+		self.bidirectional_graph = None
 		self.drawable = [[],[]]  # car and ped
 		self.path = []
 		self.drawable_path = []
@@ -36,9 +38,11 @@ class layer(layer_interface.layer):
 		if ext == '.grp':  # forward graph
 			self.gfile = osmgraph_file.graph_file(graph_fname)
 			self.graph = osmgraph_graph.graph(self.gfile)
+			self.bidirectional_graph = False
 		elif ext == '.bgrp':  # bidirectional graph
 			self.gfile = osmgraph_bidi_file.graph_file(graph_fname)			
 			self.graph = osmgraph_bidi_graph.graph(self.gfile)
+			self.bidirectional_graph = True
 
 		helper = geo_helper.layer(self.widget)
 		helper.zoom_to(self._graph_gps_bounds())
@@ -202,8 +206,12 @@ class layer(layer_interface.layer):
 	
 	def _compute_path(self):
 		tm = time.clock()
-		search_algo = dijkstra.dijkstra(self.graph)
-		self.path = search_algo.search(self.source_vertex, self.target_vertex)
+		if self.bidirectional_graph:
+			search_algo = bidi_dijkstra.search(self.graph)
+			self.path = search_algo.find_path(self.source_vertex, self.target_vertex)
+		else:
+			search_algo = dijkstra.dijkstra(self.graph)
+			self.path = search_algo.search(self.source_vertex, self.target_vertex)
 		dt = time.clock() - tm
 
 		if self.path:
