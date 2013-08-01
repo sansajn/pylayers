@@ -17,8 +17,7 @@ class layer(layer_interface.layer):
 		self.widget = widget
 		self.gfile = None
 		self.graph = None
-		self.bidirectional_graph = None
-		self.drawable = [[],[]]  # car and ped
+		self.bidirectional_graph = True
 		self.path = []
 		self.drawable_path = []
 		self.sample_compute = True
@@ -29,6 +28,9 @@ class layer(layer_interface.layer):
 		self.source_vertex = -1
 		self.target_vertex = -1
 		self.drawable_marks = []
+		
+		self.drawable = None
+		self._clear_drawable()
 		
 		widget.append_layer_description(self._layer_description())
 
@@ -102,13 +104,17 @@ class layer(layer_interface.layer):
 				
 			painter.restore()
 			
-		# vertex under cursor
+		# vertex under cursor and adjacent edges
 		if self.vertex_under_cursor:
+			# adjacent edges
+			for d in self.drawable[drawable_category.OUT_EDGES]:
+				d.paint(painter, view_offset)
+			# vertex with id
 			g = self.graph
 			vprop = g.vertex_property(self.vertex_under_cursor)
 			self._draw_vertex_under_cursor(vprop.position, 
 				self.vertex_under_cursor, view_offset, painter)
-			
+						
 		dt = time.clock() - t
 		self.debug('  #osmgraph_layer.paint(): %f s' % (dt, ))
 
@@ -193,14 +199,36 @@ class layer(layer_interface.layer):
 		return update
 		
 	def _vertex_visualisation(self, cursor_geo):
+		# vertex
 		update = False
 		v = self._find_vertex_under_cursor(cursor_geo)
 		if v and v != self.vertex_under_cursor:			
 			update = True
 		elif (not v) and self.vertex_under_cursor:
 			update = True
+		
+		# adjacent edges
+		if not drawable_settings['graph']:
+			self.drawable[drawable_category.OUT_EDGES] = []
+			if not v:
+				if len(self.drawable[drawable_category.OUT_EDGES]):
+					update = True
+			else:
+				adjs = self._get_adjacent_edges(v)
+				for f in adjs:
+					vprop = self.graph.vertex_property(v)
+					wprop = self.graph.vertex_property(f.target)
+					self.drawable[drawable_category.OUT_EDGES].append(
+						to_drawable_edge(vprop, wprop, self.zoom))
+				if len(adjs):
+					update = True
+		
 		self.vertex_under_cursor = v
+							
 		return update
+	
+	def _get_adjacent_edges(self, v):
+		return self.graph.adjacent_edges(v)
 			
 	#@} layer-interface
 	
@@ -223,26 +251,7 @@ class layer(layer_interface.layer):
 			self.path = []
 			print 'search failed'
 
-	def _prepare_drawable_data(self):
-		'''
-		self.drawable = []
-		for i in range(0, len(lod_table)):
-			self.drawable.append([])
-
-		g = self.graph
-		for v in g.vertices():
-			vprop = g.vertex_property(v)
-			for e in g.adjacent_edges(v):
-				w = g.target(e)
-				wprop = g.vertex_property(w)
-				self.drawable[e.type].append(
-					to_drawable_edge(vprop, wprop, self.zoom))
-
-		print 'LOD summary:'
-		for i in range(0, len(lod_table)):
-			print '  %d:%d' % (i, len(self.drawable[i]))
-		'''
-				
+	def _prepare_drawable_data(self):				
 		if drawable_settings['graph']:
 			self._prepare_drawable_graph()		
 
@@ -346,7 +355,7 @@ class layer(layer_interface.layer):
 		
 	def _prepare_drawable_graph(self):
 		'predpripravy graf na kreslenie'
-		self.drawable = [[],[]]  # car, pedestrian
+		self._clear_drawable()
 		g = self.graph
 		for v in g.vertices():
 			vprop = g.vertex_property(v)
@@ -369,6 +378,9 @@ class layer(layer_interface.layer):
 		point_geo = gps.mercator.xy2gps(point_world, self.zoom)
 		point_geo_sig = QtCore.QPointF(point_geo.lat*1e7, point_geo.lon*1e7)
 		return point_geo_sig
+	
+	def _clear_drawable(self):
+		self.drawable = [[],[],[],[]]  # car, pedestrian, out, in
 	
 	def _layer_description(self):
 		return {
@@ -470,7 +482,9 @@ class drawable_mark:
 
 class drawable_category:
 	CAR = 0
-	PEDESTRIAN = 1
+	PEDESTRIAN = 1	
+	OUT_EDGES = 2
+	IN_EDGES = 3
 
 class highway_values:
 	r'\saa http://wiki.openstreetmap.org/wiki/Map_features#Highway'

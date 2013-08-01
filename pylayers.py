@@ -19,7 +19,6 @@ class main_window(QtGui.QMainWindow):
 			area = QtCore.Qt.LeftDockWidgetArea
 		self.addDockWidget(area, dock)
 	#@}
-	
 
 if __name__ == '__main__':
 	app = QtGui.QApplication(sys.argv)
