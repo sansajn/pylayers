@@ -105,10 +105,21 @@ class layer(layer_interface.layer):
 			painter.restore()
 			
 		# vertex under cursor and adjacent edges
+		#  neviem dlisit obojsmerne hrany, preto nech out prekryju in hrany
 		if self.vertex_under_cursor:
-			# adjacent edges
+			# in edges
+			painter.save()
+			painter.setPen(QtCore.Qt.gray)
+			
+			for d in self.drawable[drawable_category.IN_EDGES]:
+				d.paint(painter, view_offset)
+				
+			painter.restore()
+			
+			# out edges
 			for d in self.drawable[drawable_category.OUT_EDGES]:
 				d.paint(painter, view_offset)
+				
 			# vertex with id
 			g = self.graph
 			vprop = g.vertex_property(self.vertex_under_cursor)
@@ -209,23 +220,38 @@ class layer(layer_interface.layer):
 		
 		# adjacent edges
 		if not drawable_settings['graph']:
-			self.drawable[drawable_category.OUT_EDGES] = []
-			if not v:
-				if len(self.drawable[drawable_category.OUT_EDGES]):
-					update = True
-			else:
-				adjs = self._get_adjacent_edges(v)
-				for f in adjs:
-					vprop = self.graph.vertex_property(v)
-					wprop = self.graph.vertex_property(f.target)
-					self.drawable[drawable_category.OUT_EDGES].append(
-						to_drawable_edge(vprop, wprop, self.zoom))
-				if len(adjs):
-					update = True
+			self.drawable[drawable_category.IN_EDGES] = []
+			self.drawable[drawable_category.OUT_EDGES] = []	
+			if v and v != self.vertex_collection_under_cursor:
+				in_edges = self._in_edges(v)
+				for f in in_edges:
+					self._append_edge(drawable_category.IN_EDGES, v, f)
+				
+				out_edges = self._out_edges(v)
+				for f in out_edges:
+					self._append_edge(drawable_category.OUT_EDGES, v, f)
 		
 		self.vertex_under_cursor = v
 							
 		return update
+	
+	def _append_edge(self, category, v, e):
+		vprop = self.graph.vertex_property(v)
+		wprop = self.graph.vertex_property(e.target)
+		self.drawable[category].append(
+			to_drawable_edge(vprop, wprop, self.zoom))
+		
+	def _out_edges(self, v):
+		if self.bidirectional_graph:
+			return self.graph.out_edges(v)
+		else:
+			return self.graph.adjacent_edges(v)
+		
+	def _in_edges(self, v):
+		if self.bidirectional_graph:
+			return self.graph.in_edges(v)
+		else:
+			return []
 	
 	def _get_adjacent_edges(self, v):
 		return self.graph.adjacent_edges(v)
