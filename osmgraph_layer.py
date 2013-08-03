@@ -187,7 +187,7 @@ class layer(layer_interface.layer):
 			if drawable_settings['graph']:
 				self._prepare_drawable_graph()
 			else:
-				self.drawable = []
+				self._clear_drawable()
 		if event.key() == QtCore.Qt.Key_Q:
 			drawable_settings['qtree-grid'] = not drawable_settings['qtree-grid']
 
