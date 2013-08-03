@@ -114,22 +114,24 @@ class search_step_base:
 			self._v = heapq.heappop(heap)[1]
 		else:  # first iteration
 			self._v = self._s
-			s_prop = self._property(self._s)[1]
+			s_prop = self._property(self._s)[0]
 			s_prop.distance = 0
 			s_prop.color = vertex_color.GRAY
-			heapq.heappush(heap, (0, self._s))
 			
-		v = self._v
+		v = self._v		
 		if v == self._t:
 			return True
 		
+		v_prop = self._property(v)[0]
+		v_prop.color = vertex_color.WHITE
+		
 		for e in self.adjacent_edges(g, v):
 			w = g.target(e)
-			isnew, w_prop = self._property(w)			
-			assert w_prop.color != vertex_color.WHITE, 'logic-error: dorazil som do uz navstiveneho vrcholu rychlejsie ako ked som ho prvy krat navstivil'				
-			w_prop.color = vertex_color.GRAY
+			w_prop, isnew = self._property(w)			
 			w_dist = self._distance(v) + g.cost(e)
 			if w_prop.distance > w_dist:
+				assert w_prop.color != vertex_color.WHITE, 'logic-error: dorazil som do uz navstiveneho vrcholu rychlejsie ako ked som ho prvy krat navstivil'
+				w_prop.color = vertex_color.GRAY
 				w_prop.distance = w_dist
 				w_prop.predecessor = v
 				if isnew:
@@ -147,16 +149,16 @@ class search_step_base:
 		assert False, 'not yet implemented'
 
 	def _property(self, v):
-		'Vráti dvojicu (bool, property_record).'
+		'Vráti dvojicu (property_record, bool).'
 		try:
-			return (False, self.props[v])
+			return (self.props[v], False)
 		except KeyError:
 			prop = property_record()
 			self.props[v] = prop
-			return (True, prop)
+			return (prop, True)
 		
 	def _distance(self, v):
-		return self._property(v)[1].distance
+		return self._property(v)[0].distance
 
 
 class forward_step(search_step_base):
