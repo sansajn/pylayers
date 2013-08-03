@@ -4,7 +4,8 @@
 import sys, os, math, time, random
 from PyQt4 import QtCore, QtGui
 import osmgraph_file, osmgraph_graph
-import osmgraph_bidi_file, osmgraph_bidi_graph
+import osmgraph_bidi_file
+import car_routing
 import dijkstra, bidi_dijkstra
 import layer_interface, gps, qtree, geo_helper, qt_helper
 
@@ -43,7 +44,7 @@ class layer(layer_interface.layer):
 			self.bidirectional_graph = False
 		elif ext == '.bgrp':  # bidirectional graph
 			self.gfile = osmgraph_bidi_file.graph_file(graph_fname)			
-			self.graph = osmgraph_bidi_graph.graph(self.gfile)
+			self.graph = car_routing.graph(self.gfile)
 			self.bidirectional_graph = True
 
 		helper = geo_helper.layer(self.widget)

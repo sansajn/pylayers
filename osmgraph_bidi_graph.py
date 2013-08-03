@@ -84,4 +84,3 @@ class edge_prop:
 class vertex_prop:
 	def __init__(self, raw):
 		self.position = gps.signed_position(raw[0], raw[1])
-
