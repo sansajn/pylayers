@@ -119,7 +119,7 @@ class layers(QtGui.QWidget):
 
 	def zoom_event(self, step):
 		new_zoom = max(self.zoom+step, 0)  # zdola ohranicene
-		print '\n#zoom_event(): zoom:%d' % (new_zoom, )
+		debug_helper.debug.layer_print('\n#zoom_event(): zoom:%d' % (new_zoom, ))
 		#self.set_zoom(new_zoom)
 		self.zoom_to_cursor(new_zoom)
 		self.update_window_title()
