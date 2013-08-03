@@ -2,6 +2,7 @@
 # Common layer interface.
 # \author Adam Hlavatovič
 
+import debug_helper
 
 # \note create() > zoom_event() > [paint()]
 class layer:
@@ -41,4 +42,4 @@ class layer:
 
 	def debug(self, msg):
 		if self.debug_prints:
-			print msg
+			debug_helper.debug.layer_print(msg)

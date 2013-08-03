@@ -2,6 +2,7 @@
 # \author Adam Hlavatovič
 import sys, math, time, os
 from PyQt4 import QtCore, QtGui, QtNetwork
+import debug_helper
 #import path_layer
 #import vof_layer 
 #import transport_layer 
@@ -150,8 +151,8 @@ class layers(QtGui.QWidget):
 		self.parent.setWindowTitle(title)
 		
 	#@{ Qt events
-	def paintEvent(self, e):
-		print '\n#paintEvent()'
+	def paintEvent(self, e):		
+		debug_helper.debug.layer_print('\n#paintEvent()')
 		t = time.clock()
 		qp = QtGui.QPainter()
 		qp.begin(self)
@@ -163,7 +164,7 @@ class layers(QtGui.QWidget):
 
 		qp.end()
 		dt = time.clock() - t
-		print '--> total: %f s' % (dt, )
+		debug_helper.debug.layer_print('--> total: %f s' % (dt, ))
 
 	def keyPressEvent(self, e):
 		if e.key() == QtCore.Qt.Key_O:

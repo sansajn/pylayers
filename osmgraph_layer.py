@@ -177,10 +177,9 @@ class layer(layer_interface.layer):
 			
 		if update:
 			self.widget.update()
-			print '#mouse_move_event: update()'
+			self.debug('osmgraph_layer: #mouse_move_event: update()')
 			
 		dt = time.clock() - t
-		#print '  #mouse_move_event(): %f s' % (dt, )
 			
 	def key_press_event(self, event):
 		if event.key() == QtCore.Qt.Key_G:			
