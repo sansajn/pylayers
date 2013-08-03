@@ -31,7 +31,7 @@ class search:
 			if not bwd.step(g):
 				return None
 			
-		self._takes = t_start - time.clock()
+		self._takes = time.clock() - t_start
 		
 		return self._construct_path(fwd, bwd, t, s)
 	

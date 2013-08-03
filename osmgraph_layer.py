@@ -259,28 +259,27 @@ class layer(layer_interface.layer):
 	#@} layer-interface
 	
 	def _compute_path(self):
-		tm = time.clock()
 		if self.bidirectional_graph:
 			search_algo = bidi_dijkstra.search(self.graph)
 			self.path = search_algo.find_path(self.source_vertex, self.target_vertex)
 		else:
 			search_algo = dijkstra.dijkstra(self.graph)
 			self.path = search_algo.search(self.source_vertex, self.target_vertex)
-		dt = time.clock() - tm
 
 		if self.path:
 			# stats
-			print 'search takes: %f s (%d -> %d : %d)' % (dt, 
+			stats = search_algo
+			print 'search takes: %f s (%d -> %d : %d)' % (stats._takes,
 				self.source_vertex, self.target_vertex, len(self.path))
 			if self.bidirectional_graph:
-				stats = search_algo
-				print '  iterations     : fwd:%d, bwd:%d (%d)' % (
-					stats._forward_iteration, stats._backward_iteration, 
-					stats._forward_iteration + stats._backward_iteration)
-				print '  length         : %d' % (len(self.path), )
+				print '  iterations     : %d (fwd:%d, bwd:%d)' % (
+					stats._forward_iteration + stats._backward_iteration,
+					stats._forward_iteration, stats._backward_iteration)
 				print '  common-vertex  : %d' % (stats._common_vertex, ) 
 				print '  forward-length : %d' % (stats._forward_path_edges,)
 				print '  backward-length: %d' % (stats._backward_path_edges, )
+			else:
+				print '  iterations: %d' % (stats._iteration, )
 			
 			self._fill_drawable_path()
 			self.widget.update()

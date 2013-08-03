@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 # Implmentuje jednosmerný dikstrov algoritmus.
-import sys, heapq
+import sys, time, heapq
 
 #! \saa Pozri 'osmgraph_graph.py' pre implementáciu grafu.
 class dijkstra:
@@ -8,9 +8,14 @@ class dijkstra:
 		self.g = graph
 		self.heap = []
 		self.props = {}
-		self.iteration = 0
+		
+		# stats
+		self._takes = -1
+		self._iteration = 0
 
 	def search(self, s, t):
+		t_start = time.clock()
+		
 		g = self.g
 		heap = self.heap
 
@@ -19,7 +24,7 @@ class dijkstra:
 		heapq.heappush(heap, (0, s))
 
 		while len(heap) > 0:
-			self.iteration += 1
+			self._iteration += 1
 			v = heapq.heappop(heap)[1]
 			if v == t:
 				break
@@ -38,6 +43,8 @@ class dijkstra:
 						heapq.heappush(heap, (w_dist, w))
 					'''
 					heapq.heappush(heap, (w_dist, w))
+
+		self._takes = time.clock() - t_start
 
 		if v == t:
 			return self._construct_path(v)
