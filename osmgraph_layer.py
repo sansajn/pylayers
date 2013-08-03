@@ -269,8 +269,19 @@ class layer(layer_interface.layer):
 		dt = time.clock() - tm
 
 		if self.path:
+			# stats
 			print 'search takes: %f s (%d -> %d : %d)' % (dt, 
 				self.source_vertex, self.target_vertex, len(self.path))
+			if self.bidirectional_graph:
+				stats = search_algo
+				print '  iterations     : fwd:%d, bwd:%d (%d)' % (
+					stats._forward_iteration, stats._backward_iteration, 
+					stats._forward_iteration + stats._backward_iteration)
+				print '  length         : %d' % (len(self.path), )
+				print '  common-vertex  : %d' % (stats._common_vertex, ) 
+				print '  forward-length : %d' % (stats._forward_path_edges,)
+				print '  backward-length: %d' % (stats._backward_path_edges, )
+			
 			self._fill_drawable_path()
 			self.widget.update()
 		else:

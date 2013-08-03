@@ -1,21 +1,38 @@
 # -*- coding: utf-8 -*-
 # Implmentuje obojsmerný dikstrov algoritmus.
-import sys, heapq
+import sys, time, heapq
 
 
 class search:
 	def __init__(self, graph):
 		self._graph = graph
+		
+		# stats
+		self._forward_iteration = 0
+		self._forward_path_edges = -1		
+		self._backward_iteration = 0
+		self._backward_path_edges = -1
+		self._common_vertex = -1
+		self._takes = -1  # in ms 
 	
 	def find_path(self, s, t):
+		t_start = time.clock()
+		
 		g = self._graph
 		fwd = forward_step(s, t)
 		bwd = backward_step(t, s)
+		
 		while not self._target_reached(fwd, bwd, t, s):
+			self._forward_iteration += 1
 			if not fwd.step(g):
 				return None
+			
+			self._backward_iteration += 1
 			if not bwd.step(g):
 				return None
+			
+		self._takes = t_start - time.clock()
+		
 		return self._construct_path(fwd, bwd, t, s)
 	
 	def _target_reached(self, fwd, bwd, t_fwd, t_bwd):
@@ -51,9 +68,12 @@ class search:
 		backward_path = self._backward_construct(bwd, common_vert)		
 		forward_path.extend(backward_path)
 		
+		self._common_vertex = common_vert
+		self._backward_path_edges = len(backward_path)
+		self._forward_path_edges = len(forward_path) - self._backward_path_edges
+		
 		return forward_path
 			
-		
 	def _forward_construct(self, fwd, v):
 		props = fwd.props
 
@@ -82,11 +102,10 @@ class search_step_base:
 		self._s = s
 		self._t = t
 		self._heap = []		
-		self._iteration = 0
-		
+
 		self.props = {}
 		
-	def step(self, g):					
+	def step(self, g):
 		heap = self._heap
 		
 		if self._v != -1:  
@@ -118,8 +137,6 @@ class search_step_base:
 				else:
 					heapq.heappush(heap, (w_dist, w))  # update value (not yet implemented)
 		
-		self._iteration += 1
-		
 		return True
 
 	def last_visited(self):
@@ -129,8 +146,8 @@ class search_step_base:
 		'Vrati mnozinu susednych hran (v konkretnej implementacii treba implementovat).'
 		assert False, 'not yet implemented'
 
-	#! Vráti dvojicu (bool, property_record).
 	def _property(self, v):
+		'Vráti dvojicu (bool, property_record).'
 		try:
 			return (False, self.props[v])
 		except KeyError:
