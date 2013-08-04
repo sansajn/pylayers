@@ -114,7 +114,11 @@ class layers(QtGui.QWidget):
 		'Zobrazi popis vrstvy v info dock(u).'
 		builder = self._layer_info_builder
 		builder.append_description(desc)
-		self._update_layer_info_dock(builder.str())	
+		self._update_layer_info_dock(builder.str())
+		
+	def append_layer_tool(self, tool):
+		'Tool aka dock-window.'
+		self.parent.append_dock(tool)
 	#}@ Public interface
 
 	def zoom_event(self, step):

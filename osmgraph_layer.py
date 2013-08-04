@@ -34,7 +34,11 @@ class layer(layer_interface.layer):
 		self.drawable = None
 		self._clear_drawable()
 		
+		# ui
 		widget.append_layer_description(self._layer_description())
+		
+		self._routing_ui = ui_routing(self)
+		widget.append_layer_tool(self._routing_ui.reference())
 
 	#@{ layer-interface
 	def create(self, graph_fname):
@@ -400,7 +404,7 @@ class layer(layer_interface.layer):
 				w = g.target(e)
 				wprop = g.vertex_property(w)
 				drawable = to_drawable_edge(vprop, wprop, self.zoom)
-				if e.type < highway_values.PATH:
+				if e.type < osmspec.highway.path:
 					self.drawable[drawable_category.CAR].append(drawable)
 				else:
 					self.drawable[drawable_category.PEDESTRIAN].append(drawable)
@@ -419,6 +423,18 @@ class layer(layer_interface.layer):
 	def _clear_drawable(self):
 		self.drawable = [[],[],[],[]]  # car, pedestrian, out, in
 	
+	def _create_routing_tool(self):
+		dock = QtGui.QDockWidget('Routing', self)
+		dock.setAllowedAreas(
+			QtCore.Qt.LeftDockWidgetArea|QtCore.Qt.RightDockWidgetArea)
+		
+		info = QtGui.QTextBrowser()
+		info.setHtml(self._layer_info_builder.str())
+
+		dock.setWidget(info)
+		
+		return dock
+	
 	def _layer_description(self):
 		return {
 			'title':'OSM graph layer',
@@ -429,6 +445,8 @@ class layer(layer_interface.layer):
 				'left to select source/target vertex'
 			]
 		}
+		
+		
 
 def to_drawable_edge(vprop, wprop, zoom):
 	vpos = [vprop.position.lat/float(1e7), vprop.position.lon/float(1e7)]
@@ -523,34 +541,6 @@ class drawable_category:
 	OUT_EDGES = 2
 	IN_EDGES = 3
 
-class highway_values:
-	r'\saa http://wiki.openstreetmap.org/wiki/Map_features#Highway'
-	MOTORWAY = 0
-	MOTORWAY_LINK = 1
-	TRUNK = 2
-	TRUNK_LINK = 3
-	PRIMARY = 4
-	PRIMARY_LINK = 5
-	SECONDARY = 6
-	SECONDARY_LINK = 7
-	TERTIARY = 8
-	TERTIAY_LINK = 9
-	LIVING_STREET = 10
-	PEDESTRIAN = 11
-	UNCLASSIFIED = 12
-	SERVICE = 13
-	TRACK = 14
-	BUS_GUIDEWAY = 15
-	RACEWAY = 16
-	ROAD = 17
-	PATH = 18
-	FOOTWAY = 19
-	CYCLEWAY = 20
-	BRIDLEWAY = 21
-	STEPS = 22
-	PROPOSED = 23
-	CONSTRUCTION = 24
-
 r'''
 LOD (levels of detail) table
 levels
@@ -596,3 +586,59 @@ lod_table = [
 	15   # construction
 ]
 
+# ui
+class ui_routing:
+	def __init__(self, layer):
+		self._layer = layer
+		self._ui = None
+		self._source_widget = None
+		self._target_widget = None
+		
+		self._create()
+
+	def reference(self):
+		'Gets reference to routing ui.'
+		return self._ui;
+	
+	def on_search_clicked(self):
+		i_am_there = 101
+		
+	def _create(self):
+		vlayout = QtGui.QVBoxLayout()
+
+		# source
+		label = QtGui.QLabel('Source')
+		edit = QtGui.QLineEdit()
+		hlayout = QtGui.QHBoxLayout()
+		hlayout.addWidget(label)
+		hlayout.addWidget(edit)
+		vlayout.addLayout(hlayout)
+		self._source_widget = edit
+
+		# target
+		label = QtGui.QLabel('Target')
+		edit = QtGui.QLineEdit()
+		hlayout = QtGui.QHBoxLayout()
+		hlayout.addWidget(label)
+		hlayout.addWidget(edit)
+		vlayout.addLayout(hlayout)
+		self._target_widget = edit
+
+		# search
+		search_btn = QtGui.QPushButton('Search')
+		search_btn.clicked.connect(self.on_search_clicked)
+		hlayout = QtGui.QHBoxLayout()
+		#hlayout.addSpacerItem(QtGui.QSpacerItem())
+		hlayout.addWidget(search_btn)
+		vlayout.addLayout(hlayout)
+
+		dock = QtGui.QDockWidget('Routing', self._layer.widget)
+		dock.setAllowedAreas(
+			QtCore.Qt.LeftDockWidgetArea|QtCore.Qt.RightDockWidgetArea)		
+
+		child_widget = QtGui.QWidget()
+		child_widget.setLayout(vlayout)
+
+		dock.setWidget(child_widget)
+
+		self._ui = dock
