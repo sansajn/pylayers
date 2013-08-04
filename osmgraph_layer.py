@@ -7,6 +7,7 @@ import osmgraph_file, osmgraph_graph
 import osmgraph_bidi_file
 import car_routing
 import dijkstra, bidi_dijkstra
+import osmspec
 import layer_interface, gps, qtree, geo_helper, qt_helper
 
 # g:graph, q:qtree-grid
