@@ -4,9 +4,10 @@
 import os, time, random
 from PyQt4 import QtCore, QtGui
 import osmspec
-import osmgraph_bidi_file, osmgraph_bidi_graph
+import osmgraph_bidi_file
 import bidi_dijkstra, car_routing
 import layer_interface, gps, qtree, geo_helper, qt_helper
+import ui_routing
 
 # g:graph, q:qtree-grid
 drawable_settings = {'graph':False, 'qtree-grid':True}
@@ -34,8 +35,16 @@ class layer(layer_interface.layer):
 		# ui
 		widget.append_layer_description(self._layer_description())
 		
-		self._routing_ui = ui_routing(self)
+		self._routing_ui = ui_routing.ui(self)
+		self._routing_ui.on_search_connect(self._on_search_event)
 		widget.append_layer_tool(self._routing_ui.reference())
+
+	def _on_search_event(self):
+		ui = self._routing_ui
+		self.source_vertex = ui.source_vertex()
+		self.target_vertex = ui.target_vertex()
+		self._compute_path(self.source_vertex, self.target_vertex)
+		self.widget.update()
 
 	#@{ layer-interface
 	def create(self, graph_fname):
@@ -150,7 +159,7 @@ class layer(layer_interface.layer):
 			self.path = []
 		else:
 			self.target_vertex = v
-			self._compute_path()
+			self._compute_path(self.source_vertex, self.target_vertex)
 
 		self.drawable_marks.append(
 			to_drawable_mark(self.graph.vertex_property(v), self.zoom))
@@ -246,16 +255,15 @@ class layer(layer_interface.layer):
 		return self.graph.adjacent_edges(v)
 			
 	#@} layer-interface
-	
-	def _compute_path(self):
+
+	def _compute_path(self, s, t):
 		search_algo = bidi_dijkstra.search(self.graph)
-		self.path = search_algo.find_path(self.source_vertex, self.target_vertex)
+		self.path = search_algo.find_path(s, t)
 
 		if self.path:
 			# stats
 			stats = search_algo
-			print 'search takes: %f s (%d -> %d : %d)' % (stats._takes,
-				self.source_vertex, self.target_vertex, len(self.path))
+			print 'search takes: %f s (%d -> %d : %d)' % (stats._takes,	s, t, len(self.path))
 			print '  iterations     : %d (fwd:%d, bwd:%d)' % (
 				stats._forward_iteration + stats._backward_iteration,
 				stats._forward_iteration, stats._backward_iteration)
@@ -562,60 +570,3 @@ lod_table = [
 	15,  # proposed
 	15   # construction
 ]
-
-# ui
-class ui_routing:
-	def __init__(self, layer):
-		self._layer = layer
-		self._ui = None
-		self._source_widget = None
-		self._target_widget = None
-		
-		self._create()
-
-	def reference(self):
-		'Gets reference to routing ui.'
-		return self._ui;
-	
-	def on_search_clicked(self):
-		i_am_there = 101
-		
-	def _create(self):
-		vlayout = QtGui.QVBoxLayout()
-
-		# source
-		label = QtGui.QLabel('Source')
-		edit = QtGui.QLineEdit()
-		hlayout = QtGui.QHBoxLayout()
-		hlayout.addWidget(label)
-		hlayout.addWidget(edit)
-		vlayout.addLayout(hlayout)
-		self._source_widget = edit
-
-		# target
-		label = QtGui.QLabel('Target')
-		edit = QtGui.QLineEdit()
-		hlayout = QtGui.QHBoxLayout()
-		hlayout.addWidget(label)
-		hlayout.addWidget(edit)
-		vlayout.addLayout(hlayout)
-		self._target_widget = edit
-
-		# search
-		search_btn = QtGui.QPushButton('Search')
-		search_btn.clicked.connect(self.on_search_clicked)
-		hlayout = QtGui.QHBoxLayout()
-		#hlayout.addSpacerItem(QtGui.QSpacerItem())
-		hlayout.addWidget(search_btn)
-		vlayout.addLayout(hlayout)
-
-		dock = QtGui.QDockWidget('Routing', self._layer.widget)
-		dock.setAllowedAreas(
-			QtCore.Qt.LeftDockWidgetArea|QtCore.Qt.RightDockWidgetArea)		
-
-		child_widget = QtGui.QWidget()
-		child_widget.setLayout(vlayout)
-
-		dock.setWidget(child_widget)
-
-		self._ui = dock
