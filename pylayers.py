@@ -6,18 +6,37 @@ import layers
 
 class main_window(QtGui.QMainWindow):
 	def __init__(self, args):
-		QtGui.QMainWindow.__init__(self)
+		QtGui.QMainWindow.__init__(self)		
+		self.docks = []
+		self.docks_state = True
 	
-		self.map_widget = layers.layers(self, args)
-		self.setCentralWidget(self.map_widget)
-	
+		self.layers = layers.layers(self, args)
+		self.setCentralWidget(self.layers)
+		
 		self.resize(800, 600)
 
 	#@{ Public interface
 	def append_dock(self, dock, area=None):
 		if not area:
 			area = QtCore.Qt.LeftDockWidgetArea
-		self.addDockWidget(area, dock)
+		self.addDockWidget(area, dock)		
+		self.docks.append((dock, area))
+		
+	def hide_docks(self):
+		for dock in self.docks:
+			self.removeDockWidget(dock[0])
+			
+	def show_docks(self):
+		for dock in self.docks:
+			self.addDockWidget(dock[1], dock[0])
+			
+	def toggle_docks(self):
+		if self.docks_state:
+			self.docks_state = False
+			self.hide_docks()
+		else:
+			self.docks_state = True
+			self.show_docks()
 	#@}
 
 if __name__ == '__main__':

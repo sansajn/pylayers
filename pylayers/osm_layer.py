@@ -1,12 +1,14 @@
 # -*- coding: utf-8 -*-
-# Open Street Map layer
+# Open Street Map layer implementation.
 # \author Adam Hlavatovič
 import os, time, math
 from PyQt4 import QtCore, QtGui, QtNetwork
-import layer_interface, gps
+import layer_interface
 
 
 class layer(layer_interface.layer):
+	'Implementuje Open Street Map vrstvu.'
+
 	def __init__(self, widget):
 		layer_interface.layer.__init__(self)
 		self.MAX_OSM_ZOOM = 18
@@ -115,7 +117,7 @@ class layer(layer_interface.layer):
 		
 	def use_approximated_tile(self, x, y):
 		tile = self.find_in_approx_cache(x, y, self.zoom)
-		if tile == None:
+		if tile is None:
 			tile = self.approximate_tile(x, y, self.zoom)
 			self.insert_tile_to_approx_cache(tile, x, y, self.zoom)
 		return tile		

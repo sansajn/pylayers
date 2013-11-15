@@ -174,6 +174,8 @@ class layers(QtGui.QWidget):
 		if e.key() == QtCore.Qt.Key_O:
 			fname = open_file_dialog(self)
 			self._open_file(fname)
+		elif e.key() == QtCore.Qt.Key_H:
+			self.parent.toggle_docks()
 		
 		for layer in self.layers:
 			layer.key_press_event(e)
@@ -234,7 +236,8 @@ class layers(QtGui.QWidget):
 			'commands':[
 				'o to open a file',
 				'right to pan a layer',
-				'wheel to zoom in/out']
+				'wheel to zoom in/out',
+				'h hide/show tools']
 		}
 
 	def _open_file(self, fname):

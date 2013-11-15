@@ -2,7 +2,7 @@
 # \autor Adam Hlavatovic
 
 class debug:
-	debug_prints = False
+	debug_prints = True
 	
 	@staticmethod
 	def layer_print(msg):
