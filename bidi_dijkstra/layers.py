@@ -28,12 +28,13 @@ class layers(QtGui.QWidget):
 		self.update_window_title()
 		
 		self.add_layer(osm_layer.layer(self))
-
-		if len(args) > 1:
-			self._open_file(args[1])
 			
 		self.setMouseTracking(True)
 		self.setFocusPolicy(QtCore.Qt.ClickFocus)
+
+		# tu este nie je okno roztiahnute, preto sa zle zoomuje
+		if len(args) > 1:
+			self._open_file(args[1])
 
 	#{@ Public interface
 	def add_layer(self, layer):
@@ -205,6 +206,7 @@ class layers(QtGui.QWidget):
 			self.mouse_move_event(e)
 
 	def resizeEvent(self, e):
+		
 		self.update()
 	#@}  Qt events
 
@@ -237,66 +239,18 @@ class layers(QtGui.QWidget):
 
 	def _open_file(self, fname):
 		'\note jednotlive layere sa budu postupne pridavat'
-		if is_vof_file(str(fname)):
-			#layer = vof_layer.layer(self)
-			#layer.create(fname)
-			#self.add_layer(layer)
-			pass
-		elif is_path_diff_file(str(fname)):
-			#layer = path_layer.layer(self)
-			#layer.create(fname)
-			#self.add_layer(layer)
-			pass
-		elif is_edges_file(str(fname)):
-			#layer = edge_layer.layer(self)
-			#layer.create(str(fname))
-			#self.add_layer(layer)
-			#self.files.append(os.path.basename(str(fname)))
-			pass
-		elif is_osmgraph_bidi_file(str(fname)):
+		if is_osmgraph_bidi_file(str(fname)):
 			layer = osmgraph_bidi_layer.layer(self)
 			layer.create(str(fname))
 			self.add_layer(layer)
-		elif is_cluster_file(str(fname)):
-			#layer = cluster_layer.layer(self)
-			#layer.create(str(fname))
-			#self.add_layer(layer)
-			pass
-		elif is_simple_file(str(fname)):
-			#layer = simple_layer.layer(self)
-			#layer.create(str(fname))
-			#self.add_layer(layer)
-			pass
-		else:
-			#layer = transport_layer.layer(self)
-			#layer.create(fname)
-			#self.add_layer(layer)
-			pass
 
 		self.update()
 
-
-def is_vof_file(fname):
-	return os.path.splitext(fname)[1] == '.vof'
-
-def is_path_diff_file(fname):
-	return os.path.splitext(fname)[1] == '.out'
-
-def is_path2_file(fname):
-	return os.path.splitext(fname)[1] == '.path'
-
-def is_edges_file(fname):
-	return os.path.splitext(fname)[1] == '.edges'
-
-def is_cluster_file(fname):
-	return os.path.splitext(fname)[1] == '.cluster'
 
 def is_osmgraph_bidi_file(fname):
 	ext = os.path.splitext(fname)[1]
 	return ext == '.bgrp'
 
-def is_simple_file(fname):
-	return os.path.splitext(fname)[1] == '.simple'
 
 def open_file_dialog(parent):
 	return QtGui.QFileDialog.getOpenFileName(parent, 'Open dump file ...')

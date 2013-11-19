@@ -7,13 +7,27 @@ import layers
 class main_window(QtGui.QMainWindow):
 	def __init__(self, args):
 		QtGui.QMainWindow.__init__(self)		
+		self.args = args
+		self.layers = None
 		self.docks = []
 		self.docks_state = True
-	
-		self.layers = layers.layers(self, args)
-		self.setCentralWidget(self.layers)
-		
 		self.resize(800, 600)
+
+		#self.layers = layers.layers(self, self.args)
+		#self.setCentralWidget(self.layers)
+
+	def resizeEvent(self, event):
+		QtGui.QMainWindow.resizeEvent(self, event)
+		r = self.geometry()
+		print('resizeEvent():%d,%d' % (r.width(), r.height()))
+
+	def showEvent(self, event):
+		QtGui.QMainWindow.showEvent(self, event)
+		r = self.geometry()
+		print('showEvent():%d,%d' % (r.width(), r.height()))
+		if self.layers is None:
+			self.layers = layers.layers(self, self.args)
+			self.setCentralWidget(self.layers)
 
 	#@{ Public interface
 	def append_dock(self, dock, area=None):
