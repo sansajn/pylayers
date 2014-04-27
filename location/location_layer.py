@@ -18,6 +18,7 @@ class layer(layer_interface.layer):
 		self._times = []  # in ms
 		self._edges = []
 		self._vertex_id_under_cursor = None
+		self._selected_vertices_id = []
 
 	def create(self, uri):
 		# precitaj gps log
@@ -30,13 +31,6 @@ class layer(layer_interface.layer):
 		# nastav pohlad
 		layers_manip.zoom(self._widget).to_baserect(self._points_bounds())
 
-	def _points_bounds(self):
-		verts = self._base_points
-		r = geometry.rectangle(verts[0], verts[1])
-		for v in verts:
-			r.expand(v)
-		return r
-
 	def paint(self, painter, view_offset):
 		# path
 		painter.setPen(QtCore.Qt.black)
@@ -47,6 +41,10 @@ class layer(layer_interface.layer):
 		if self._vertex_id_under_cursor is not None:
 			self._draw_vertex_under_cursor(self._vertex_id_under_cursor, painter)
 
+		# selected vertices
+		for vid in self._selected_vertices_id:
+			self._draw_selected_vertex(vid, painter)
+
 	def zoom_event(self, zoom):
 		self._zoom = zoom
 		self._prepare_drawable_data()
@@ -55,8 +53,19 @@ class layer(layer_interface.layer):
 		vid = self._find_vertex_under_cursor(self._cursor_xy_to_xybase(event.pos()))
 		if vid != self._vertex_id_under_cursor:
 			self._vertex_id_under_cursor = vid
-			self._update_reason = layer.VERTEX_UPDER_CURSOR
 			self._update()
+
+	def mouse_release_event(self, event):
+		vid = self._find_vertex_under_cursor(self._cursor_xy_to_xybase(event.pos()))
+		if vid is None:
+			return
+
+		if vid in self._selected_vertices_id:
+			self._selected_vertices_id.remove(vid)
+		else:
+			self._selected_vertices_id.append(vid)
+
+		# netreba robit update (o to sa postara mouse_move)
 
 	def _cursor_xy_to_xybase(self, cursor_pos):
 		# (?) <> jak toto moze fungovat, ked pozicia mysi je od laveho horneho rohu ?
@@ -95,7 +104,10 @@ class layer(layer_interface.layer):
 		painter.setBrush(QtGui.QBrush(QtCore.Qt.red))
 		painter.drawRect(v_xy[0]-2, v_xy[1]-2, 4, 4)
 		# id, time
-		v_text = 'v:%d, t:%.2fs' % (vid, self._times[vid]/1000.0)  # todo: zobrazuj skutocny cas
+		v_text = 'v:%d, t:%.2fs' % (vid, self._times[vid]/1000.0)
+		if self._vertex_selected() and vid != self._selected_vertices_id[0]:
+			v_text += ' (%.2fs)' % (
+				(self._times[vid] - self._times[self._selected_vertices_id[0]])/1000.0, )
 		font = painter.font()
 		fm = QtGui.QFontMetricsF(font)
 		rc_text = fm.boundingRect(v_text)
@@ -103,6 +115,19 @@ class layer(layer_interface.layer):
 		painter.drawText(QtCore.QPointF(v_xy[0], v_xy[1]) +
 			QtCore.QPointF(-rc_text.width()/2.0, -5), v_text)
 		painter.restore()
+
+	def _draw_selected_vertex(self, vid, painter):
+		self._draw_vertex_under_cursor(vid, painter)
+
+	def _points_bounds(self):
+		verts = self._base_points
+		r = geometry.rectangle(verts[0], verts[1])
+		for v in verts:
+			r.expand(v)
+		return r
+	
+	def _vertex_selected(self):
+		return len(self._selected_vertices_id) > 0
 
 	VERTEX_UPDER_CURSOR = 1
 
