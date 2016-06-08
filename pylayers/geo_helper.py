@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 # Helper class for geographic layers.
 # \author Adam Hlavatovič
-import gps, geometry
+import gps
 
 class layer:
 	#@{ Public interface
