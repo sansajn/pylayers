@@ -55,8 +55,12 @@ commands.
 
 ## location layer
 
-location : zobrazí gps log (v akom formáte ?)
+Layer to visualize line based gps log file.
 
-Spusti príkazom
+> describe log file structure
 
-	$ python location/pylayers.py
+
+## custom layer
+
+> a few lines how to implement new layer 
+
