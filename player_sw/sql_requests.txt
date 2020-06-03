@@ -1,0 +1,14 @@
+request for stop names and infotainment codes
+
+SELECT stop_name_public, stop_number_infotainment_direction_0 FROM stops WHERE line_name='U1' AND direction='A'
+
+list of lines
+
+SELECT DISTINCT line_name FROM stops
+
+
+list of U1 directions
+
+SELECT DISTINCT direction FROM stops WHERE line_name='U1'
+
+
