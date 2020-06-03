@@ -3,6 +3,7 @@
 import time, os
 from PyQt4 import QtCore, QtGui, QtNetwork
 import osm_layer
+import train_jouney_layer
 import debug_helper
 
 
@@ -269,6 +270,10 @@ class layers(QtGui.QWidget):
 			#layer.create(str(fname))
 			#self.add_layer(layer)
 			pass
+		elif is_journey_db_file(str(fname)):
+			layer = train_jouney_layer.layer(self)
+			layer.create(str(fname))
+			self.add_layer(layer)
 		else:
 			#layer = transport_layer.layer(self)
 			#layer.create(fname)
@@ -299,6 +304,9 @@ def is_osmgraph_file(fname):
 
 def is_simple_file(fname):
 	return os.path.splitext(fname)[1] == '.simple'
+
+def is_journey_db_file(fname):
+	return os.path.splitext(fname)[1] == '.db'
 
 def open_file_dialog(parent):
 	return QtGui.QFileDialog.getOpenFileName(parent, 'Open dump file ...')

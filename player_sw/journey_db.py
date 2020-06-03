@@ -1,5 +1,5 @@
 # journey database support
-import sqlite3
+import sqlite3, geocoder
 
 def main():
 	conn = sqlite3.connect('test/journey.db')
@@ -17,6 +17,16 @@ def main():
 
 	cur.close()
 	conn.close()
+
+
+	location = []
+	for (stop, code) in stops:
+		g = geocoder.osm(stop)
+		location.append((g.latlng[0], g.latlng[1]))
+		print('%s -> %s' % (stop, g.latlng))
+
+	for loc in location:
+		print(loc)
 
 if __name__ == '__main__':
 	main()
