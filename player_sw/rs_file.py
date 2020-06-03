@@ -1,4 +1,5 @@
 import json
+from datetime import datetime
 
 class rs_file:
 	def __init__(self):
@@ -47,8 +48,11 @@ class spot:
 	def __init__(self, spot_record):
 		self.id = spot_record['id']
 		self.name = spot_record['name']
+		self.valid_date = () # (from, to)
 		self.line = []  # (number:string, direction:int)
 		self.section = []  # (from:int, to:int)
+		
+		datetime.strptime(spot_record, '%Y-%M-%D')
 
 		if 'spotitemaddress' in spot_record:
 			address = spot_record['spotitemaddress']
@@ -64,6 +68,19 @@ class spot:
 
 	def is_addressed(self):
 		return len(self.line) > 0 or len(self.section) > 0
+
+
+
+def spot_on_journey(spot, journey):
+	for from_to in spot.section:
+		try:
+			from_idx = journey.index(from_to[0])
+			to_idx = journey.index(from_to[1], from_idx)
+			return from_idx
+		except ValueError:
+			return -1
+
+	return -1
 
 
 
@@ -83,4 +100,14 @@ if __name__ == '__main__':
 		for from_to in stop_spot.section:
 			if from_to[0] == stop_code:
 				print(stop_spot.id, stop_spot.name)
+
+	print('---')
+
+	# print all spots on a journey
+	journey = [1001, 1009, 1017, 1027, 1037, 1045, 1054]
+	for spot in stop_list:
+		idx = spot_on_journey(spot, journey)
+		if idx != -1:
+			print(idx, spot.id, spot.name)
+
 
